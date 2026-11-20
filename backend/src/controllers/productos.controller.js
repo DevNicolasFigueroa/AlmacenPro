@@ -7,6 +7,7 @@ export async function listar(req, res) {
   const productos = await productosModelo.listar({
     textoBusqueda: buscar ?? '',
     soloStockBajo: stockBajo === '1',
+    incluirCosto: req.usuario.rol === 'administrador',
   });
   res.json(productos);
 }

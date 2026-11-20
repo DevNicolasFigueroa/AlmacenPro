@@ -1,11 +1,14 @@
 // Modelo de productos: consultas SQL a la tabla "productos".
 import { pool } from '../config/db.js';
 
-export async function listar({ textoBusqueda = '', soloStockBajo = false } = {}) {
+// El costo solo se proyecta cuando el rol lo puede ver (RF-11, RF-12):
+// ocultarlo únicamente en la interfaz no basta, el dato viajaría en la respuesta.
+export async function listar({ textoBusqueda = '', soloStockBajo = false, incluirCosto = false } = {}) {
   let sql = `
     SELECT p.id, p.codigo_barras, p.nombre, p.descripcion,
            p.categoria_id, c.nombre AS categoria,
-           p.precio_costo, p.precio_venta, p.stock, p.stock_minimo,
+           ${incluirCosto ? 'p.precio_costo,' : ''}
+           p.precio_venta, p.stock, p.stock_minimo,
            p.unidad_medida, p.activo
     FROM productos p
     LEFT JOIN categorias c ON c.id = p.categoria_id

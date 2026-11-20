@@ -80,7 +80,7 @@ export interface Producto {
   descripcion: string | null;
   categoria_id: number | null;
   categoria: string | null;
-  precio_costo: string; // DECIMAL llega como string
+  precio_costo?: string; // DECIMAL llega como string; solo para administradores (RF-12)
   precio_venta: string;
   stock: number;
   stock_minimo: number;
