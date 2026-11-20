@@ -1,0 +1,560 @@
+/* AlmacenPro: sistema visual común. Cada módulo añade sus detalles en su propio archivo. */
+
+:root {
+  --botella: #0f3b2e;
+  --botella-clara: #175240;
+  --letrero: #f3b53f;
+  --fondo: #eef1ec;
+  --papel: #fffdf7;
+  --tinta: #1a1a17;
+  --tinta-suave: #5e6661;
+  --linea: #d6dcd3;
+  --entrada: #b9c3b9;
+  --cabecera-tabla: #e4ebe3;
+  --sello: #b5391f;
+  --sello-suave: #f6dcd3;
+  --exito: #2e7d52;
+  --exito-suave: #dcefe3;
+  --alerta-suave: #fbeccb;
+  --display: 'Anton', Impact, sans-serif;
+  --texto: 'Atkinson Hyperlegible', 'Segoe UI', system-ui, sans-serif;
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--tinta);
+  font-family: var(--texto);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+:focus-visible {
+  outline: 3px solid var(--tinta);
+  outline-offset: 3px;
+}
+
+/* Navegación: el letrero superior del almacén */
+
+.app-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 20px;
+  padding: 14px 24px;
+  background: var(--botella);
+  color: var(--papel);
+}
+
+.app-nav :focus-visible {
+  outline-color: var(--letrero);
+}
+
+.app-marca {
+  margin-right: auto;
+  color: var(--letrero);
+  font-family: var(--display);
+  font-size: 1.7rem;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.app-sesion {
+  color: #c9dccf;
+  font-size: 0.92rem;
+}
+
+.app-enlaces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.app-enlaces a {
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: #d9e7de;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.app-enlaces a:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--papel);
+}
+
+/* El enlace de la sección actual usa el color del letrero */
+.app-enlaces a.active {
+  background: var(--letrero);
+  color: var(--botella);
+}
+
+.app-salir {
+  padding: 8px 14px;
+  border: 1.5px solid #6f9284;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--papel);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.app-salir:hover {
+  border-color: var(--letrero);
+  color: var(--letrero);
+}
+
+.app-alerta {
+  margin: 16px 16px 0;
+}
+
+/* Cada sección protegida ocupa el ancho útil con márgenes laterales de 16 px */
+.pagina {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 16px 56px;
+}
+
+.pagina-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.pagina-titulo {
+  margin: 0;
+  color: var(--botella);
+  font-family: var(--display);
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  font-weight: 400;
+  line-height: 1;
+}
+
+.pagina-descripcion {
+  margin: 8px 0 0;
+  color: var(--tinta-suave);
+}
+
+.pagina-subtitulo {
+  margin: 0 0 14px;
+  color: var(--botella);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+/* Alertas: mensajes de éxito, error o aviso */
+
+.alerta {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-left: 5px solid;
+  border-radius: 8px;
+}
+
+.alerta--error {
+  background: var(--sello-suave);
+  border-color: var(--sello);
+  color: #6e1d0c;
+}
+
+.alerta--ok {
+  background: var(--exito-suave);
+  border-color: var(--exito);
+  color: #174d2f;
+}
+
+.alerta--aviso {
+  background: var(--alerta-suave);
+  border-color: var(--letrero);
+  color: var(--tinta);
+}
+
+/* Botones */
+
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border: 2px solid var(--botella);
+  border-radius: 10px;
+  background: var(--botella);
+  color: var(--letrero);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.boton:hover:not(:disabled) {
+  background: var(--botella-clara);
+}
+
+.boton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.boton--secundario {
+  background: transparent;
+  color: var(--botella);
+}
+
+.boton--secundario:hover:not(:disabled) {
+  background: rgba(15, 59, 46, 0.08);
+}
+
+.boton--peligro {
+  border-color: var(--sello);
+  background: transparent;
+  color: var(--sello);
+}
+
+.boton--peligro:hover:not(:disabled) {
+  background: var(--sello-suave);
+}
+
+.boton--pequeno {
+  padding: 7px 12px;
+  font-size: 0.9rem;
+}
+
+/* Formularios: campos con línea inferior sobre papel */
+
+.campo {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.campo input,
+.campo select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 2px solid var(--entrada);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--tinta);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.campo input:focus,
+.campo select:focus {
+  outline: none;
+  border-color: var(--botella);
+  box-shadow: 0 0 0 3px rgba(243, 181, 63, 0.7);
+}
+
+.campo-fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.campo-fila .campo {
+  flex: 1 1 220px;
+}
+
+.ayuda {
+  margin: -6px 0 16px;
+  color: var(--tinta-suave);
+  font-size: 0.92rem;
+}
+
+/* Superficies de papel */
+
+.hoja {
+  padding: 22px;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--papel);
+}
+
+.hoja-titulo {
+  margin: 0 0 16px;
+  color: var(--botella);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+/* Tablas */
+
+.tabla-contenedor {
+  overflow-x: auto;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--papel);
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.97rem;
+}
+
+.tabla th {
+  padding: 12px 14px;
+  border-bottom: 2px solid var(--botella);
+  background: var(--cabecera-tabla);
+  color: var(--botella);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.tabla td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--linea);
+  vertical-align: middle;
+}
+
+.tabla tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.tabla .numero {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.nota-bloqueo {
+  color: var(--tinta-suave);
+  font-size: 0.88rem;
+}
+
+/* Etiquetas de estado */
+
+.chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--cabecera-tabla);
+  color: var(--botella);
+  font-size: 0.86rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.chip--peligro {
+  background: var(--sello-suave);
+  color: #6e1d0c;
+}
+
+.chip--apagado {
+  background: #e5e5e0;
+  color: var(--tinta-suave);
+}
+
+/* Stock: barra que se compara con el mínimo del producto */
+
+.stock {
+  display: grid;
+  gap: 6px;
+  min-width: 150px;
+}
+
+.stock-cifra {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.stock-barra {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dfe6dc;
+}
+
+.stock-barra span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--exito);
+}
+
+.stock--bajo .stock-barra span {
+  background: var(--sello);
+}
+
+.stock--bajo .stock-cifra {
+  color: var(--sello);
+}
+
+/* Estados vacíos: invitan a actuar o explican qué llega */
+
+.vacio {
+  padding: 36px 24px;
+  border: 2px dashed var(--entrada);
+  border-radius: 14px;
+  color: var(--tinta-suave);
+  text-align: center;
+}
+
+.vacio strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--botella);
+  font-family: var(--display);
+  font-size: 1.6rem;
+  font-weight: 400;
+}
+
+.vacio p {
+  margin: 0 auto 16px;
+  max-width: 46ch;
+}
+
+/* Acceso: contraseñas y recuperación, en una hoja centrada */
+
+.acceso {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 32px 16px;
+  background: var(--botella);
+}
+
+.acceso-hoja {
+  width: min(460px, 100%);
+  padding: 32px 28px 28px;
+  border-top: 10px solid var(--letrero);
+  border-radius: 18px;
+  background: var(--papel);
+}
+
+.acceso-hoja h2 {
+  margin: 0 0 8px;
+  color: var(--botella);
+  font-family: var(--display);
+  font-size: 2rem;
+  font-weight: 400;
+  line-height: 1.05;
+}
+
+.acceso-hoja > p {
+  margin: 0 0 20px;
+  color: var(--tinta-suave);
+}
+
+.acceso-pie {
+  margin: 20px 0 0;
+  padding-top: 14px;
+  border-top: 1px dashed var(--entrada);
+  color: var(--tinta-suave);
+  font-size: 0.92rem;
+}
+
+.acceso-pie a {
+  color: var(--botella);
+  font-weight: 700;
+}
+
+/* Aviso de venta por expirar, junto a la boleta */
+
+.aviso-venta {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-left: 5px solid var(--letrero);
+  border-radius: 8px;
+  background: var(--alerta-suave);
+  color: var(--tinta);
+}
+
+/* Cuentas: formulario y tabla en dos columnas cuando hay espacio */
+
+.cuentas-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+
+@media (max-width: 860px) {
+  .cuentas-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Sobre con el secreto: se muestra una sola vez */
+
+.velo {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 59, 46, 0.6);
+}
+
+.sobre {
+  width: min(480px, 100%);
+  padding: 28px;
+  border: 3px dashed var(--botella);
+  border-radius: 18px;
+  background: var(--papel);
+}
+
+.sobre h3 {
+  margin: 0 0 12px;
+  color: var(--botella);
+  font-family: var(--display);
+  font-size: 1.9rem;
+  font-weight: 400;
+}
+
+.sobre-valor {
+  margin: 14px 0;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--letrero);
+  color: var(--botella);
+  font-size: 2rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.sobre-etiqueta {
+  margin: 0;
+  font-weight: 700;
+}
+
+.sobre p {
+  margin: 0 0 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

@@ -1,0 +1,232 @@
+/* Login: letrero esmaltado de almacén de barrio + hoja de ingreso con líneas de cuaderno. */
+
+.login {
+  --botella: #0f3b2e;
+  --letrero: #f3b53f;
+  --hoja: #fff7e6;
+  --tinta: #1a1a17;
+  --sello: #b5391f;
+  --tinta-suave: #5e5a4f;
+  --display: 'Anton', Impact, sans-serif;
+  --texto: 'Atkinson Hyperlegible', 'Segoe UI', system-ui, sans-serif;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  min-height: 100vh;
+  margin: 0;
+  background: var(--botella);
+  color: var(--tinta);
+  font-family: var(--texto);
+  line-height: 1.45;
+}
+
+.login *,
+.login *::before,
+.login *::after {
+  box-sizing: border-box;
+}
+
+.login :focus-visible {
+  outline: 3px solid var(--letrero);
+  outline-offset: 3px;
+}
+
+/* Letrero */
+
+.login-letrero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+}
+
+.login-placa {
+  position: relative;
+  max-width: 460px;
+  padding: 36px 40px;
+  border-radius: 14px;
+  background: var(--letrero);
+  color: var(--botella);
+  text-align: center;
+  transform: rotate(-3deg);
+  transform-origin: top center;
+  box-shadow: 0 24px 40px -20px rgba(0, 0, 0, 0.55);
+  animation: login-colgar 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Filete pintado a mano, interior del letrero */
+.login-placa::before {
+  position: absolute;
+  inset: 12px;
+  border: 2px dashed rgba(15, 59, 46, 0.45);
+  border-radius: 8px;
+  content: '';
+  pointer-events: none;
+}
+
+.login-placa h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(3.4rem, 8vw, 6.4rem);
+  font-weight: 400;
+  line-height: 0.92;
+  letter-spacing: 0.01em;
+}
+
+.login-placa p {
+  margin: 14px 0 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+@keyframes login-colgar {
+  from {
+    transform: rotate(-12deg);
+    opacity: 0;
+  }
+  to {
+    transform: rotate(-3deg);
+    opacity: 1;
+  }
+}
+
+/* Hoja de ingreso */
+
+.login-hoja {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 56px 32px;
+  border-radius: 28px 0 0 28px;
+  background: var(--hoja);
+}
+
+.login-contenedor {
+  width: min(380px, 100%);
+}
+
+.login-titulo {
+  margin: 0 0 24px;
+  font-size: 1.7rem;
+  font-weight: 700;
+}
+
+.login-aviso {
+  margin: 0 0 20px;
+  padding: 10px 14px;
+  border-left: 4px solid var(--letrero);
+  background: rgba(243, 181, 63, 0.25);
+}
+
+.login-form {
+  display: grid;
+  gap: 4px;
+}
+
+/* Campos como líneas de cuaderno de fiado */
+.login-campo {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 18px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.login-campo input {
+  width: 100%;
+  padding: 10px 2px;
+  border: 0;
+  border-bottom: 2px solid var(--tinta);
+  background: transparent;
+  color: var(--tinta);
+  font: inherit;
+  font-size: 1.2rem;
+}
+
+.login-campo input:focus {
+  outline: none;
+  border-bottom-color: var(--botella);
+  box-shadow: 0 2px 0 var(--letrero);
+}
+
+.login-campo input:focus-visible {
+  outline: 3px solid var(--letrero);
+  outline-offset: 3px;
+}
+
+.login-error {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-left: 4px solid var(--sello);
+  background: #f6dcd3;
+  color: #6e1d0c;
+}
+
+.login-boton {
+  width: 100%;
+  margin-top: 8px;
+  padding: 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--botella);
+  color: var(--letrero);
+  font-family: var(--display);
+  font-size: 1.4rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.login-boton:hover:not(:disabled) {
+  background: #175240;
+}
+
+.login-boton:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.login-pie,
+.login-nota {
+  margin: 22px 0 0;
+  color: var(--tinta-suave);
+  font-size: 0.95rem;
+}
+
+.login-pie a {
+  color: var(--botella);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+.login-nota {
+  padding-top: 14px;
+  border-top: 1px dashed #c9bfa6;
+}
+
+/* Responsive: el letrero queda arriba y la hoja debajo */
+
+@media (max-width: 760px) {
+  .login {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .login-letrero {
+    padding: 32px 16px 24px;
+  }
+
+  .login-placa {
+    padding: 24px 28px;
+    transform: rotate(-2deg);
+  }
+
+  .login-hoja {
+    padding: 36px 20px 48px;
+    border-radius: 28px 28px 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-placa {
+    animation: none;
+  }
+}

@@ -6,12 +6,14 @@ export function SinPermisos() {
   const navegar = useNavigate();
 
   return (
-    <section>
-      <h2>Sin permisos</h2>
-      <p>No tienes permisos para acceder a esta sección.</p>
-      <button type="button" onClick={() => navegar('/ventas')}>
-        Volver a ventas
-      </button>
+    <section className="pagina">
+      <div className="vacio">
+        <strong>Sin permisos</strong>
+        <p>No tienes permisos para acceder a esta sección. Pídele al administrador si la necesitas.</p>
+        <button type="button" className="boton" onClick={() => navegar('/ventas')}>
+          Volver a ventas
+        </button>
+      </div>
     </section>
   );
 }

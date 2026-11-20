@@ -22,37 +22,53 @@ export function VistaHistorialVentas() {
   }, []);
 
   return (
-    <section>
-      <h2>Ventas canceladas automáticamente</h2>
-      {error && <p role="alert">{error}</p>}
-      {cargando && <p>Cargando historial…</p>}
-      {!cargando && ventas.length === 0 && <p>No hay ventas canceladas automáticamente.</p>}
+    <section className="pagina">
+      <header className="pagina-cabecera">
+        <div>
+          <h2 className="pagina-titulo">Historial de ventas</h2>
+          <p className="pagina-descripcion">
+            Ventas que se cerraron solas tras 15 minutos sin actividad.
+          </p>
+        </div>
+      </header>
+
+      {error && <p role="alert" className="alerta alerta--error">{error}</p>}
+      {cargando && <p className="pagina-descripcion">Cargando historial…</p>}
+
+      {!cargando && ventas.length === 0 && !error && (
+        <div className="vacio">
+          <strong>No hay ventas canceladas automáticamente</strong>
+          <p>Cuando una venta quede abandonada por 15 minutos, aparecerá aquí para que la revises.</p>
+        </div>
+      )}
 
       {ventas.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>N.º</th>
-              <th>Fecha</th>
-              <th>Cajero</th>
-              <th>Inactiva desde</th>
-              <th>Cancelada</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ventas.map((venta) => (
-              <tr key={venta.id}>
-                <td>{venta.id}</td>
-                <td>{new Date(venta.fecha).toLocaleString('es-CL')}</td>
-                <td>{venta.cajero_nombre} ({venta.cajero_usuario})</td>
-                <td>{new Date(venta.ultima_actividad).toLocaleString('es-CL')}</td>
-                <td>{new Date(venta.cancelada_en).toLocaleString('es-CL')}</td>
-                <td>{formatoCLP.format(Number(venta.total))}</td>
+        <div className="tabla-contenedor">
+          <table className="tabla">
+            <thead>
+              <tr>
+                <th className="numero">N.º</th>
+                <th>Fecha</th>
+                <th>Cajero</th>
+                <th>Inactiva desde</th>
+                <th>Cancelada</th>
+                <th className="numero">Total</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {ventas.map((venta) => (
+                <tr key={venta.id}>
+                  <td className="numero">{venta.id}</td>
+                  <td>{new Date(venta.fecha).toLocaleString('es-CL')}</td>
+                  <td>{venta.cajero_nombre} <span className="nota-bloqueo">({venta.cajero_usuario})</span></td>
+                  <td>{new Date(venta.ultima_actividad).toLocaleString('es-CL')}</td>
+                  <td>{new Date(venta.cancelada_en).toLocaleString('es-CL')}</td>
+                  <td className="numero">{formatoCLP.format(Number(venta.total))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

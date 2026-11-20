@@ -48,38 +48,45 @@ export function VistaRecuperarContrasena() {
   }
 
   return (
-    <section>
-      <h2>Recuperar acceso de administrador</h2>
-      <p>Ingresa el código de recuperación que guardaste al crear la cuenta.</p>
-      <form onSubmit={enviar}>
-        <label>
-          Usuario
-          <input value={usuario} onChange={(e) => setUsuario(e.target.value)} required />
-        </label>
-        <label>
-          Código de recuperación
-          <input value={codigo} onChange={(e) => setCodigo(e.target.value)} required />
-        </label>
-        <label>
-          Nueva contraseña (mínimo 8 caracteres, distinta del usuario)
-          <input type="password" value={nuevaContrasena}
-            onChange={(e) => setNuevaContrasena(e.target.value)} required minLength={8} />
-        </label>
-        <label>
-          Confirmar nueva contraseña
-          <input type="password" value={confirmacion}
-            onChange={(e) => setConfirmacion(e.target.value)} required />
-        </label>
-        {error && <p role="alert">{error}</p>}
-        <button type="submit" disabled={cargando}>
-          {cargando ? 'Restableciendo…' : 'Restablecer contraseña'}
-        </button>
-      </form>
-      <p className="aviso-recuperacion">
-        Esta opción es solo para cuentas de administrador. Los cajeros deben pedir una
-        nueva contraseña al administrador.
-      </p>
-      <p><a href="/login">Volver al inicio de sesión</a></p>
-    </section>
+    <main className="acceso">
+      <section className="acceso-hoja" aria-labelledby="titulo-recuperar">
+        <h2 id="titulo-recuperar">Recupera tu acceso</h2>
+        <p>Ingresa el código de recuperación que guardaste al crear la cuenta de administrador.</p>
+        <form onSubmit={enviar}>
+          <label className="campo">
+            Usuario
+            <input value={usuario} onChange={(e) => setUsuario(e.target.value)} required
+              autoComplete="username" />
+          </label>
+          <label className="campo">
+            Código de recuperación
+            <input value={codigo} onChange={(e) => setCodigo(e.target.value)} required
+              autoComplete="off" />
+          </label>
+          <label className="campo">
+            Nueva contraseña
+            <input type="password" value={nuevaContrasena}
+              onChange={(e) => setNuevaContrasena(e.target.value)} required minLength={8}
+              autoComplete="new-password" />
+          </label>
+          <p className="ayuda">Mínimo 8 caracteres y distinta del usuario.</p>
+          <label className="campo">
+            Confirmar nueva contraseña
+            <input type="password" value={confirmacion}
+              onChange={(e) => setConfirmacion(e.target.value)} required
+              autoComplete="new-password" />
+          </label>
+          {error && <p role="alert" className="alerta alerta--error">{error}</p>}
+          <button type="submit" className="boton" disabled={cargando}>
+            {cargando ? 'Restableciendo…' : 'Restablecer contraseña'}
+          </button>
+        </form>
+        <p className="acceso-pie">
+          Esta opción es solo para cuentas de administrador. Los cajeros deben pedir una
+          nueva contraseña al administrador.
+        </p>
+        <p className="acceso-pie"><a href="/login">Volver al inicio de sesión</a></p>
+      </section>
+    </main>
   );
 }
