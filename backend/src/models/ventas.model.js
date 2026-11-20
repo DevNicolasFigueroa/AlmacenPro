@@ -58,7 +58,7 @@ export async function iniciar(usuarioId, hoy) {
       `INSERT INTO ventas
          (usuario_id, fecha, total, metodo_pago, estado, iniciada_en, ultima_actividad)
        VALUES (?, ?, 0, 'efectivo', 'en_curso', ?, ?)`,
-      [usuarioId, hoy, hoy]
+      [usuarioId, hoy, hoy, hoy]
     );
 
     await conexion.commit();

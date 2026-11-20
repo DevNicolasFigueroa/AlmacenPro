@@ -18,7 +18,7 @@ export const pool = mysql.createPool({
 // Verificación de conexión al arrancar: si falla, muestra un mensaje claro.
 export async function verificarConexion() {
   try {
-    const [conexion] = await pool.getConnection();
+    const conexion = await pool.getConnection();
     conexion.release();
     console.log(`Conexión a MySQL OK (base de datos: ${env.db.nombre})`);
   } catch (error) {

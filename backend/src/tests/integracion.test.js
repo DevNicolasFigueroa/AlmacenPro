@@ -227,7 +227,28 @@ test('el último Administrador activo no puede desactivarse ni restablecerse (RF
   });
   assert.equal(loginAdmin.estado, 200);
 
-  // Un segundo Administrador permite que el primero se desactive, quedando uno activo.
+  // Desactivar al último Administrador activo se rechaza.
+  const desactivarUltimo = await peticion(`/auth/usuarios/${admin.id}/estado`, {
+    metodo: 'PATCH',
+    token: loginAdmin.datos.token,
+    cuerpo: { activo: false },
+  });
+  assert.equal(desactivarUltimo.estado, 409);
+  assert.equal(
+    desactivarUltimo.datos.mensaje,
+    'Debe quedar al menos un Administrador activo'
+  );
+
+  // Restablecer la contraseña de un único Administrador activo se rechaza:
+  // con esa cuenta la acción se hace con "cambiar tu propia contraseña".
+  const restablelerUltimo = await peticion(`/auth/usuarios/${admin.id}/contrasena`, {
+    metodo: 'PATCH',
+    token: loginAdmin.datos.token,
+  });
+  assert.equal(restablelerUltimo.estado, 400);
+  assert.equal(restablelerUltimo.datos.mensaje, 'Usa la opción de cambiar tu propia contraseña');
+
+  // Cuando hay otro Administrador activo, desactivarlo y reactivarlo es posible.
   const crearAdmin2 = await peticion('/auth/usuarios', {
     metodo: 'POST',
     token: loginAdmin.datos.token,
@@ -236,35 +257,19 @@ test('el último Administrador activo no puede desactivarse ni restablecerse (RF
   assert.equal(crearAdmin2.estado, 201);
   idAdmin2 = crearAdmin2.datos.id;
 
-  const desactivarAdmin = await peticion(`/auth/usuarios/${admin.id}/estado`, {
+  const desactivarAdmin2 = await peticion(`/auth/usuarios/${idAdmin2}/estado`, {
     metodo: 'PATCH',
     token: loginAdmin.datos.token,
     cuerpo: { activo: false },
   });
-  assert.equal(desactivarAdmin.estado, 200);
+  assert.equal(desactivarAdmin2.estado, 200);
 
-  // Con un solo Administrador activo, ni desactivar ni restablecer la segunda es posible.
-  const ultimoDesactivar = await peticion('/auth/usuarios/' + idAdmin2 + '/estado', {
-    metodo: 'PATCH',
-    token: loginAdmin.datos.token,
-    cuerpo: { activo: false },
-  });
-  assert.equal(ultimoDesactivar.estado, 409);
-  assert.equal(ultimoDesactivar.datos.mensaje, 'Debe quedar al menos un Administrador activo');
-
-  const ultimoRestablecer = await peticion('/auth/usuarios/' + idAdmin2 + '/contrasena', {
-    metodo: 'PATCH',
-    token: loginAdmin.datos.token,
-  });
-  assert.equal(ultimoRestablecer.estado, 409);
-
-  // Se recupera la admin principal para no dejar la acción colgada.
-  const reactivarAdmin = await peticion(`/auth/usuarios/${admin.id}/estado`, {
+  const reactivarAdmin2 = await peticion(`/auth/usuarios/${idAdmin2}/estado`, {
     metodo: 'PATCH',
     token: loginAdmin.datos.token,
     cuerpo: { activo: true },
   });
-  assert.equal(reactivarAdmin.estado, 200);
+  assert.equal(reactivarAdmin2.estado, 200);
 });
 
 test('el Administrador desactiva un cajero, puede reactivarlo y se reingresa', async () => {

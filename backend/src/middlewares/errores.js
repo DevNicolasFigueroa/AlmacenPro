@@ -22,5 +22,7 @@ export class ErrorApi extends Error {
   constructor(estado, mensaje) {
     super(mensaje);
     this.estado = estado;
+    // El manejador de errores lee ".mensaje"; el texto ya está en ".message".
+    this.mensaje = mensaje;
   }
 }

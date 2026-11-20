@@ -13,8 +13,10 @@ export const LONGITUD_MINIMA_CONTRASENA = 8;
 function comoFecha(valor) {
   if (valor instanceof Date) return valor;
   if (!valor) return null;
-  // MySQL con dateStrings devuelve 'YYYY-MM-DD HH:mm:ss'.
-  return new Date(String(valor).replace(' ', 'T') + 'Z');
+  // MySQL con dateStrings devuelve 'YYYY-MM-DD HH:mm:ss' en hora local del servidor;
+  // se interpreta como local porque los valores que se escriben (hoy = new Date())
+  // también son hora local.
+  return new Date(String(valor).replace(' ', 'T'));
 }
 
 // Recorta espacios externos y descarta identificadores vacíos o con espacios internos.
