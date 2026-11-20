@@ -17,8 +17,8 @@ import {
   estadoDeBloqueo,
   normalizarIdentificador,
   puedeCerrarSesion,
-  puedeDesactivar,
   puedeRecuperarAdministrador,
+  puedeRestablecer,
   siguienteIntento,
 } from '../utils/validaciones.js';
 
@@ -175,43 +175,53 @@ export async function cambiarEstado(req, res) {
     throw new ErrorApi(400, 'Indica si la cuenta debe activarse o desactivarse');
   }
 
-  const objetivo = await usuariosModelo.buscarPorId(id);
-  if (!objetivo) {
+  // El modelo aplica la guarda del último administrador dentro de una transacción.
+  const resultado = await usuariosModelo.cambiarEstado(id, activo);
+
+  if (resultado.noEncontrada) {
     throw new ErrorApi(404, 'No se encontró la cuenta indicada');
   }
-  if (!puedeDesactivar(objetivo.rol)) {
-    throw new ErrorApi(409, 'Las cuentas de administrador son permanentes');
+  if (resultado.ultimoAdministrador) {
+    throw new ErrorApi(409, 'Debe quedar al menos un Administrador activo');
   }
-
-  const ventaActiva = await ventasModelo.buscarEnCursoPorUsuario(id);
-  await usuariosModelo.cambiarEstado(id, activo);
 
   let mensaje = activo
     ? 'Cuenta activada correctamente'
     : 'Cuenta desactivada correctamente';
-  if (!activo && ventaActiva) {
+  if (!activo && resultado.ventaEnCurso) {
     mensaje = 'Cuenta desactivada; podrá terminar o cancelar la venta en curso antes de perder el acceso';
   }
 
   res.json({ mensaje });
 }
 
-export async function restablecerContrasenaCajero(req, res) {
+export async function restablecerContrasena(req, res) {
   const objetivo = await usuariosModelo.buscarPorId(Number(req.params.id));
   if (!objetivo) {
     throw new ErrorApi(404, 'No se encontró la cuenta indicada');
   }
-  if (!puedeDesactivar(objetivo.rol)) {
-    throw new ErrorApi(409, 'Las cuentas de administrador son permanentes');
+  if (objetivo.id === req.usuario.id) {
+    throw new ErrorApi(400, 'Usa la opción de cambiar tu propia contraseña');
+  }
+  if (await ventasModelo.buscarEnCursoPorUsuario(objetivo.id)) {
+    throw new ErrorApi(
+      409,
+      'La cuenta tiene una venta en curso; pídele terminarla o cancelarla primero'
+    );
+  }
+
+  const adminsActivos = await usuariosModelo.contarAdministradoresActivos();
+  if (!puedeRestablecer(objetivo.rol, objetivo.activo, adminsActivos)) {
+    throw new ErrorApi(409, 'Debe quedar al menos un Administrador activo');
   }
 
   const contrasenaTemporal = generarContrasenaTemporal();
   await usuariosModelo.guardarContrasena(objetivo.id, await cifrar(contrasenaTemporal), true);
 
   res.json({
-    mensaje: 'Contraseña temporal generada. El cajero debe cambiarla en su primer ingreso',
+    mensaje: 'Contraseña temporal generada. La persona debe cambiarla en su próximo ingreso',
     contrasenaTemporal,
-    aviso: 'Se muestra una sola vez; entrégala en persona al cajero',
+    aviso: 'Se muestra una sola vez; entrégala en persona',
   });
 }
 

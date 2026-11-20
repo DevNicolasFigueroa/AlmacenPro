@@ -1,5 +1,6 @@
 // Modelo de usuarios: único lugar con SQL de la tabla "usuarios" (spec 001).
 import { pool } from '../config/db.js';
+import { puedeDesactivar } from '../utils/validaciones.js';
 
 export async function buscarPorUsuario(usuario) {
   const [filas] = await pool.query('SELECT * FROM usuarios WHERE usuario = :usuario', {
@@ -81,7 +82,7 @@ export async function cambiarEstado(id, activo) {
 
     if (!activo && objetivo.rol === 'administrador' && objetivo.activo) {
       const adminsActivos = await contarAdministradoresActivos(conexion, { bloquear: true });
-      if (adminsActivos <= 1) {
+      if (!puedeDesactivar(objetivo.rol, objetivo.activo, adminsActivos)) {
         await conexion.rollback();
         return { ultimoAdministrador: true };
       }
