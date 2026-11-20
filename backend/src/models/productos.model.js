@@ -1,5 +1,7 @@
 // Modelo de productos: consultas SQL a la tabla "productos".
 import { pool } from '../config/db.js';
+import * as movimientosStock from './movimientosStock.model.js';
+import { armarMovimiento, calcularAjuste } from '../utils/inventario.js';
 
 // mysql2 entrega los DECIMAL como texto ("1490.00", "2.500"): se convierten a número
 // antes de salir del modelo para que ninguna capa superior compare textos.
@@ -138,25 +140,151 @@ export async function listarParaResumen() {
   }));
 }
 
-export async function crear(producto) {
+// RF-1, RF-8: crea el producto y, si trae stock inicial, su movimiento "stock inicial"
+// en la misma transacción (todo o nada). "valores" es lo que devuelve validarDatosProducto.
+export async function crear({ valores, usuarioId, hoy }) {
+  const conexion = await pool.getConnection();
+  try {
+    await conexion.beginTransaction();
+
+    const [resultado] = await conexion.query(
+      `INSERT INTO productos
+         (codigo_barras, nombre, categoria_id, precio_costo, precio_venta,
+          stock, stock_minimo, unidad_medida)
+       VALUES
+         (:codigoBarras, :nombre, :categoriaId, :costo, :precioVenta,
+          :stock, :stockMinimo, :unidad)`,
+      {
+        codigoBarras: valores.codigoBarras,
+        nombre: valores.nombre,
+        categoriaId: valores.categoriaId,
+        costo: valores.costo,
+        precioVenta: valores.precioVenta,
+        stock: valores.stockInicial,
+        stockMinimo: valores.stockMinimo,
+        unidad: valores.unidad,
+      }
+    );
+    const productoId = resultado.insertId;
+
+    if (valores.stockInicial > 0) {
+      await movimientosStock.insertar(conexion, armarMovimiento({
+        productoId,
+        usuarioId,
+        tipo: 'stock_inicial',
+        stockAntes: 0,
+        stockDespues: valores.stockInicial,
+        nota: null,
+        hoy,
+      }));
+    }
+
+    await conexion.commit();
+    return productoId;
+  } catch (error) {
+    await conexion.rollback();
+    throw error;
+  } finally {
+    conexion.release();
+  }
+}
+
+// RF-9, RF-10: lista blanca de campos editables. "stock" y "activo" no se tocan aquí:
+// el stock solo cambia por ajuste, venta o anulación, y el estado por cambiarEstado.
+// El precio nuevo solo rige hacia adelante: detalle_ventas conserva el suyo (RF-11).
+export async function actualizar(id, valores) {
   const [resultado] = await pool.query(
-    `INSERT INTO productos
-       (codigo_barras, nombre, descripcion, categoria_id,
-        precio_costo, precio_venta, stock, stock_minimo, unidad_medida)
-     VALUES
-       (:codigoBarras, :nombre, :descripcion, :categoriaId,
-        :precioCosto, :precioVenta, :stock, :stockMinimo, :unidadMedida)`,
+    `UPDATE productos
+     SET nombre = :nombre,
+         codigo_barras = :codigoBarras,
+         categoria_id = :categoriaId,
+         unidad_medida = :unidad,
+         precio_venta = :precioVenta,
+         precio_costo = :costo,
+         stock_minimo = :stockMinimo
+     WHERE id = :id`,
     {
-      codigoBarras: producto.codigoBarras ?? null,
-      nombre: producto.nombre,
-      descripcion: producto.descripcion ?? null,
-      categoriaId: producto.categoriaId ?? null,
-      precioCosto: producto.precioCosto ?? 0,
-      precioVenta: producto.precioVenta,
-      stock: producto.stock ?? 0,
-      stockMinimo: producto.stockMinimo ?? 0,
-      unidadMedida: producto.unidadMedida ?? 'unidad',
+      id,
+      nombre: valores.nombre,
+      codigoBarras: valores.codigoBarras,
+      categoriaId: valores.categoriaId,
+      unidad: valores.unidad,
+      precioVenta: valores.precioVenta,
+      costo: valores.costo,
+      stockMinimo: valores.stockMinimo,
     }
   );
-  return resultado.insertId;
+  return resultado.affectedRows > 0;
+}
+
+// RF-13, RF-14: desactivar o reactivar no toca el stock ni el historial.
+// No existe función de borrado (RF-15).
+export async function cambiarEstado(id, activo) {
+  const [resultado] = await pool.query(
+    'UPDATE productos SET activo = :activo WHERE id = :id',
+    { id, activo: activo ? 1 : 0 }
+  );
+  return resultado.affectedRows > 0;
+}
+
+// RF-12: la unidad solo se puede cambiar mientras no haya movimientos de stock ni ventas.
+export async function tieneVentasOMovimientos(id) {
+  const [filas] = await pool.query(
+    `SELECT EXISTS (SELECT 1 FROM movimientos_stock WHERE producto_id = :id)
+         OR EXISTS (SELECT 1 FROM detalle_ventas WHERE producto_id = :id) AS tiene`,
+    { id }
+  );
+  return Boolean(filas[0].tiene);
+}
+
+// RF-22–27, RF-30: ajuste manual de stock en UNA transacción.
+// SELECT ... FOR UPDATE bloquea la fila: dos ajustes simultáneos se ejecutan uno tras otro
+// y el segundo ve el stock ya descontado (RF-27, RNF-1). No exige que esté activo (RF-30).
+// Devuelve { ok: true, stock, diferencia } o { ok: false, codigo, mensaje, stockActual }.
+export async function ajustarStock({ productoId, usuarioId, tipo, cantidad, nota, hoy }) {
+  const conexion = await pool.getConnection();
+  try {
+    await conexion.beginTransaction();
+
+    const [filas] = await conexion.query(
+      'SELECT id, stock, unidad_medida FROM productos WHERE id = :productoId FOR UPDATE',
+      { productoId }
+    );
+    if (filas.length === 0) {
+      await conexion.rollback();
+      return { ok: false, codigo: 'NO_ENCONTRADO', mensaje: 'No se encontró el producto' };
+    }
+
+    const producto = filas[0];
+    const stockActual = aNumero(producto.stock);
+    const calculo = calcularAjuste({
+      tipo, cantidad, stockActual, unidad: producto.unidad_medida,
+    });
+    if (!calculo.ok) {
+      await conexion.rollback();
+      return calculo;
+    }
+
+    await conexion.query(
+      'UPDATE productos SET stock = :stock WHERE id = :productoId',
+      { stock: calculo.stockNuevo, productoId }
+    );
+    await movimientosStock.insertar(conexion, armarMovimiento({
+      productoId,
+      usuarioId,
+      tipo,
+      stockAntes: stockActual,
+      stockDespues: calculo.stockNuevo,
+      nota,
+      hoy,
+    }));
+
+    await conexion.commit();
+    return { ok: true, stock: calculo.stockNuevo, diferencia: calculo.diferencia };
+  } catch (error) {
+    await conexion.rollback();
+    throw error;
+  } finally {
+    conexion.release();
+  }
 }
