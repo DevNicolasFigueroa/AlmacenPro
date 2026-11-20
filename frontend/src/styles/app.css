@@ -529,6 +529,37 @@ body {
   font-weight: 400;
 }
 
+/* Variante ancha para formularios y tablas dentro de una ventana */
+
+.sobre--ancho {
+  width: min(720px, 100%);
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+.formulario-columnas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+}
+
+.formulario-columnas .campo--completo {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 600px) {
+  .formulario-columnas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.error-campo {
+  margin: -8px 0 12px;
+  color: #6e1d0c;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .sobre-valor {
   margin: 14px 0;
   padding: 14px 16px;

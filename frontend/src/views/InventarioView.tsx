@@ -7,11 +7,21 @@ import { useSearchParams } from 'react-router-dom';
 import { api, mensajeError } from '../services/api';
 import { useAutenticacion } from '../context/AutenticacionContext';
 import { formatearCantidad, formatearClp } from '../utils/formato';
+import { FormularioProducto } from '../components/FormularioProducto';
+import { AjusteStockModal } from '../components/AjusteStockModal';
+import { HistorialStockModal } from '../components/HistorialStockModal';
 import type { Categoria, EstadoStock, Producto } from '../types';
 
 interface Props {
   soloLectura?: boolean;
 }
+
+// Ventana abierta sobre el listado (solo administrador).
+type Ventana =
+  | { tipo: 'formulario'; producto?: Producto }
+  | { tipo: 'ajuste'; producto: Producto }
+  | { tipo: 'historial'; producto: Producto }
+  | null;
 
 const FILTROS_DE_ESTADO = ['bajo', 'agotado'];
 
@@ -31,7 +41,9 @@ export function VistaInventario({ soloLectura = false }: Props) {
   const [busqueda, setBusqueda] = useState('');
   const [categoria, setCategoria] = useState('');
   const [mensaje, setMensaje] = useState('');
+  const [avisos, setAvisos] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const [ventana, setVentana] = useState<Ventana>(null);
 
   const esAdministrador = usuario?.rol === 'administrador';
   const estadoParametro = parametros.get('estado') ?? '';
@@ -84,6 +96,13 @@ export function VistaInventario({ soloLectura = false }: Props) {
     }
   }
 
+  function alGuardar(texto: string, avisosRecibidos: string[] = []) {
+    setMensaje(texto);
+    setAvisos(avisosRecibidos);
+    setVentana(null);
+    cargar();
+  }
+
   const hayFiltros = Boolean(busqueda || categoria || estadoFiltro);
 
   return (
@@ -97,6 +116,11 @@ export function VistaInventario({ soloLectura = false }: Props) {
               : 'Stock, precios y margen de cada producto.'}
           </p>
         </div>
+        {esAdministrador && (
+          <button type="button" className="boton" onClick={() => setVentana({ tipo: 'formulario' })}>
+            Nuevo producto
+          </button>
+        )}
       </header>
 
       <div className="campo-fila filtros">
@@ -125,6 +149,9 @@ export function VistaInventario({ soloLectura = false }: Props) {
       </div>
 
       {mensaje && <p role="status" className="alerta alerta--ok">{mensaje}</p>}
+      {avisos.map((aviso) => (
+        <p key={aviso} role="status" className="alerta alerta--aviso">{aviso}</p>
+      ))}
       {error && <p role="alert" className="alerta alerta--error">{error}</p>}
 
       {productos.length > 0 && (
@@ -176,6 +203,18 @@ export function VistaInventario({ soloLectura = false }: Props) {
                     <td>
                       <div className="acciones">
                         <button type="button" className="boton boton--pequeno boton--secundario"
+                          onClick={() => setVentana({ tipo: 'formulario', producto })}>
+                          Editar
+                        </button>
+                        <button type="button" className="boton boton--pequeno boton--secundario"
+                          onClick={() => setVentana({ tipo: 'ajuste', producto })}>
+                          Ajustar stock
+                        </button>
+                        <button type="button" className="boton boton--pequeno boton--secundario"
+                          onClick={() => setVentana({ tipo: 'historial', producto })}>
+                          Historial
+                        </button>
+                        <button type="button" className="boton boton--pequeno boton--secundario"
                           onClick={() => cambiarActivo(producto)}>
                           {producto.activo ? 'Desactivar' : 'Reactivar'}
                         </button>
@@ -198,6 +237,26 @@ export function VistaInventario({ soloLectura = false }: Props) {
               : 'Cuando se carguen productos en el almacén, aparecerán aquí con su stock.'}
           </p>
         </div>
+      )}
+
+      {esAdministrador && ventana?.tipo === 'formulario' && (
+        <FormularioProducto
+          producto={ventana.producto}
+          categorias={categorias}
+          onGuardado={alGuardar}
+          onAbrirAjuste={(producto) => setVentana({ tipo: 'ajuste', producto })}
+          onCerrar={() => setVentana(null)}
+        />
+      )}
+      {esAdministrador && ventana?.tipo === 'ajuste' && (
+        <AjusteStockModal
+          producto={ventana.producto}
+          onAjustado={alGuardar}
+          onCerrar={() => setVentana(null)}
+        />
+      )}
+      {esAdministrador && ventana?.tipo === 'historial' && (
+        <HistorialStockModal producto={ventana.producto} onCerrar={() => setVentana(null)} />
       )}
     </section>
   );

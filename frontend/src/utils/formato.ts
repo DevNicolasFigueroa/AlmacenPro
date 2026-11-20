@@ -10,6 +10,13 @@ export function formatearClp(valor: string | number | undefined) {
   });
 }
 
+// Acepta lo que escribe la persona ("1490", "1.490", "$1.490") y devuelve el entero en pesos.
+// Con decimales o texto devuelve NaN: los precios en CLP no llevan decimales.
+export function parsearMonto(texto: string): number {
+  const limpio = texto.replace(/[\s$.]/g, '');
+  return /^\d+$/.test(limpio) ? Number(limpio) : NaN;
+}
+
 // Kilos con coma decimal ("2,5 kg") y unidades enteras ("12 u.").
 export function formatearCantidad(valor: number, unidad: UnidadMedida) {
   if (unidad === 'kilo') {

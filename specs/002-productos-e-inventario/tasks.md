@@ -28,7 +28,7 @@ Las pruebas de integración y todo lo que toque MySQL requieren una instancia re
 - [x] **T7. Actualizar tipos, utilidades de formato y la vista de inventario con filtros y resumen (≈30 min).** RF-17, RF-18, RF-19, RF-20, RF-21, RF-31, RF-33, RF-34, RNF-4, RNF-5.
   Hecho cuando: `types/index.ts` y `utils/formato.ts` (`formatearClp`, `formatearCantidad`, `parsearCantidad`) existen; `InventarioView` tiene búsqueda, filtro de categoría y de estado (leyendo `?estado=` de la dirección), etiquetas Agotado, Stock bajo y No disponible, filas de desactivados atenuadas, columna de acciones solo para administrador y sin costo ni margen para el cajero; `ResumenStock` aparece en `/ventas` con enlaces a los filtros y se oculta sin alertas; `tsc --noEmit` pasa.
 
-- [ ] **T8. Construir el formulario de producto y los modales de ajuste e historial (≈30 min).** RF-1–9, RF-10, RF-12, RF-22, RF-23, RF-24, RF-25, RF-28, RF-29, RF-30.
+- [x] **T8. Construir el formulario de producto y los modales de ajuste e historial (≈30 min).** RF-1–9, RF-10, RF-12, RF-22, RF-23, RF-24, RF-25, RF-28, RF-29, RF-30.
   Hecho cuando: `FormularioProducto` crea y edita (stock solo de lectura al editar, unidad bloqueada con historia, error de código repetido con nombre, alerta "Venderás con pérdida" con botón "Guardar de todos modos", aviso de nombre repetido); `AjusteStockModal` muestra motivo, cantidad, nota y vista previa "actual → quedará", y deshabilita Confirmar si quedaría negativo; `HistorialStockModal` es de solo lectura; `tsc --noEmit` y `vite build` pasan.
 
 - [ ] **T9. Escribir las pruebas de integración del módulo (≈30 min).** RF-1–34, RNF-1, RNF-2, RNF-5, RNF-6, RNF-7.
