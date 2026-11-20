@@ -1,0 +1,23 @@
+# Dependencias
+node_modules/
+
+# Entorno (contiene credenciales)
+.env
+.env.local
+.env.*.local
+
+# Builds
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

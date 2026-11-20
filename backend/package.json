@@ -1,0 +1,25 @@
+{
+  "name": "almacenpro-backend",
+  "version": "0.1.0",
+  "description": "API REST de AlmacenPro: inventario, ventas y fiado para pequeños negocios",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "seed": "node database/seed.js",
+    "test": "node --test src/utils/*.test.js",
+    "test:integracion": "node --test src/tests/*.test.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^5.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.11.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
