@@ -33,5 +33,5 @@ Las tareas completadas y subidas quedan marcadas con `[x]`.
 - [x] **T9. Ajustar las vistas de ingreso, cambio y recuperación de contraseña (≈25 min).** RF-1, RF-2, RF-3, RF-22, RF-28, RF-29, RF-31.
   Hecho cuando: el login muestra errores genéricos y el tiempo de bloqueo; el cambio de contraseña exige la actual y la política; la recuperación solo funciona para administrador con código válido y no permite cajeros.
 
-- [ ] **T10. Escribir las pruebas de integración y completar el checklist del MVP (≈30 min).** RF-1–12, RF-14–29, RF-31, RF-33–39.
+- [x] **T10. Escribir las pruebas de integración y completar el checklist del MVP (≈30 min).** RF-1–12, RF-14–29, RF-31, RF-33–39.
   Hecho cuando: `npm test` pasa, las pruebas de integración del MVP están escritas y el checklist manual se completa en un entorno con MySQL real.

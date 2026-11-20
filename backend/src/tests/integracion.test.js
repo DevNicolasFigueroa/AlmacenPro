@@ -24,6 +24,7 @@ const rutaEsquema = path.resolve(directorio, '../../database/schema.sql');
 let servidor;
 let tokenAdmin;
 let idCajero;
+let idAdmin2;
 let contrasenaCajero;
 
 function url(ruta) {
@@ -215,4 +216,198 @@ test('un cajero no puede desactivar cuentas ni consultar el historial', async ()
   assert.equal((await peticion(`/auth/usuarios/${idCajero}/estado`, {
     metodo: 'PATCH', token: tokenCajero, cuerpo: { activo: false },
   })).estado, 403);
+});
+
+test('el último Administrador activo no puede desactivarse ni restablecerse (RF-26, RF-27)', async () => {
+  const admin = await usuariosModelo.buscarPorUsuario('admin');
+
+  const loginAdmin = await peticion('/auth/login', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'admin', password: 'nueva-clave-456' },
+  });
+  assert.equal(loginAdmin.estado, 200);
+
+  // Un segundo Administrador permite que el primero se desactive, quedando uno activo.
+  const crearAdmin2 = await peticion('/auth/usuarios', {
+    metodo: 'POST',
+    token: loginAdmin.datos.token,
+    cuerpo: { nombre: 'Segundo', usuario: 'admin2', rol: 'administrador', password: 'admin2-1234' },
+  });
+  assert.equal(crearAdmin2.estado, 201);
+  idAdmin2 = crearAdmin2.datos.id;
+
+  const desactivarAdmin = await peticion(`/auth/usuarios/${admin.id}/estado`, {
+    metodo: 'PATCH',
+    token: loginAdmin.datos.token,
+    cuerpo: { activo: false },
+  });
+  assert.equal(desactivarAdmin.estado, 200);
+
+  // Con un solo Administrador activo, ni desactivar ni restablecer la segunda es posible.
+  const ultimoDesactivar = await peticion('/auth/usuarios/' + idAdmin2 + '/estado', {
+    metodo: 'PATCH',
+    token: loginAdmin.datos.token,
+    cuerpo: { activo: false },
+  });
+  assert.equal(ultimoDesactivar.estado, 409);
+  assert.equal(ultimoDesactivar.datos.mensaje, 'Debe quedar al menos un Administrador activo');
+
+  const ultimoRestablecer = await peticion('/auth/usuarios/' + idAdmin2 + '/contrasena', {
+    metodo: 'PATCH',
+    token: loginAdmin.datos.token,
+  });
+  assert.equal(ultimoRestablecer.estado, 409);
+
+  // Se recupera la admin principal para no dejar la acción colgada.
+  const reactivarAdmin = await peticion(`/auth/usuarios/${admin.id}/estado`, {
+    metodo: 'PATCH',
+    token: loginAdmin.datos.token,
+    cuerpo: { activo: true },
+  });
+  assert.equal(reactivarAdmin.estado, 200);
+});
+
+test('el Administrador desactiva un cajero, puede reactivarlo y se reingresa', async () => {
+  const loginAdmin = await peticion('/auth/login', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'admin', password: 'nueva-clave-456' },
+  });
+  assert.equal(loginAdmin.estado, 200);
+  const tokenAdmin = loginAdmin.datos.token;
+
+  const loginCajero = async () => peticion('/auth/login', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'cajero1', password: 'clave-cajero-123' },
+  });
+
+  assert.equal((await loginCajero()).estado, 200);
+
+  const desactivar = await peticion(`/auth/usuarios/${idCajero}/estado`, {
+    metodo: 'PATCH',
+    token: tokenAdmin,
+    cuerpo: { activo: false },
+  });
+  assert.equal(desactivar.estado, 200);
+
+  const ingresoDesactivado = await loginCajero();
+  assert.equal(ingresoDesactivado.estado, 403);
+  assert.equal(
+    ingresoDesactivado.datos.mensaje,
+    'Esta cuenta está desactivada. Consulta con el administrador'
+  );
+
+  const reactivar = await peticion(`/auth/usuarios/${idCajero}/estado`, {
+    metodo: 'PATCH',
+    token: tokenAdmin,
+    cuerpo: { activo: true },
+  });
+  assert.equal(reactivar.estado, 200);
+
+  assert.equal((await loginCajero()).estado, 200);
+});
+
+test('un cajero desactivado con venta en curso solo puede cerrarla y pierde el acceso', async () => {
+  const loginAdmin = await peticion('/auth/login', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'admin', password: 'nueva-clave-456' },
+  });
+  assert.equal(loginAdmin.estado, 200);
+
+  const loginCajero = await peticion('/auth/login', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'cajero1', password: 'clave-cajero-123' },
+  });
+  assert.equal(loginCajero.estado, 200);
+  const tokenCajero = loginCajero.datos.token;
+
+  const inicio = await peticion('/ventas/iniciar', { metodo: 'POST', token: tokenCajero });
+  assert.equal(inicio.estado, 201);
+  const idVenta = inicio.datos.venta.id;
+
+  const desactivar = await peticion(`/auth/usuarios/${idCajero}/estado`, {
+    metodo: 'PATCH',
+    token: loginAdmin.datos.token,
+    cuerpo: { activo: false },
+  });
+  assert.equal(desactivar.estado, 200);
+  assert.ok(desactivar.datos.mensaje.includes('podrá terminar o cancelar la venta'));
+
+  // Acciones distintas a cerrar la venta quedan bloqueadas para la venta en curso.
+  const actividad = await peticion(`/ventas/${idVenta}/actividad`, { metodo: 'POST', token: tokenCajero });
+  assert.equal(actividad.estado, 403);
+
+  const fin = await peticion(`/ventas/${idVenta}/finalizar`, { metodo: 'POST', token: tokenCajero });
+  assert.equal(fin.estado, 200);
+
+  // Al terminar la venta, la sesión se invalida al momento.
+  const salida = await peticion('/auth/logout', { metodo: 'POST', token: tokenCajero });
+  assert.equal(salida.estado, 401);
+
+  const reactivar = await peticion(`/auth/usuarios/${idCajero}/estado`, {
+    metodo: 'PATCH',
+    token: loginAdmin.datos.token,
+    cuerpo: { activo: true },
+  });
+  assert.equal(reactivar.estado, 200);
+});
+
+test('cancelar una venta a un cajero desactivado invalida su acceso', async () => {
+  const loginAdmin = await peticion('/auth/login', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'admin', password: 'nueva-clave-456' },
+  });
+  assert.equal(loginAdmin.estado, 200);
+
+  const loginCajero = await peticion('/auth/login', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'cajero1', password: 'clave-cajero-123' },
+  });
+  assert.equal(loginCajero.estado, 200);
+  const tokenCajero = loginCajero.datos.token;
+
+  const inicio = await peticion('/ventas/iniciar', { metodo: 'POST', token: tokenCajero });
+  assert.equal(inicio.estado, 201);
+  const idVenta = inicio.datos.venta.id;
+
+  const desactivar = await peticion(`/auth/usuarios/${idCajero}/estado`, {
+    metodo: 'PATCH',
+    token: loginAdmin.datos.token,
+    cuerpo: { activo: false },
+  });
+  assert.equal(desactivar.estado, 200);
+
+  const cancelar = await peticion(`/ventas/${idVenta}/cancelar`, { metodo: 'POST', token: tokenCajero });
+  assert.equal(cancelar.estado, 200);
+
+  // Aparece sesión invalidada: el token queda caducado.
+  const nuevaVenta = await peticion('/ventas/iniciar', { metodo: 'POST', token: tokenCajero });
+  assert.equal(nuevaVenta.estado, 401);
+});
+
+test('crear cuentas duplicadas y contraseñas iguales al usuario se rechazan', async () => {
+  const loginAdmin = await peticion('/auth/login', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'admin', password: 'nueva-clave-456' },
+  });
+  assert.equal(loginAdmin.estado, 200);
+
+  const duplicado = await peticion('/auth/usuarios', {
+    metodo: 'POST',
+    token: loginAdmin.datos.token,
+    cuerpo: { nombre: 'Dup', usuario: 'admin', rol: 'cajero' },
+  });
+  assert.equal(duplicado.estado, 409);
+
+  const igualUsuario = await peticion('/auth/usuarios', {
+    metodo: 'POST',
+    token: loginAdmin.datos.token,
+    cuerpo: { nombre: 'CajeroX', usuario: 'cajero2x', rol: 'administrador', password: 'cajero2x' },
+  });
+  assert.equal(igualUsuario.estado, 400);
+
+  const recuperar = await peticion('/auth/recuperar-contrasena', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'cajero1', codigoRecuperacion: 'x', nuevaContrasena: 'cajero2x' },
+  });
+  assert.equal(recuperar.estado, 401);
 });
