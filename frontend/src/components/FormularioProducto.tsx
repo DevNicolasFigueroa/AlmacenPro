@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import axios from 'axios';
 import { api, mensajeError } from '../services/api';
-import { formatearCantidad, parsearCantidad, parsearMonto } from '../utils/formato';
+import { formatearCantidad, formatearClp, parsearCantidad, parsearMonto } from '../utils/formato';
 import { Modal } from './Modal';
 import type { Categoria, MovimientoStock, Producto, UnidadMedida } from '../types';
 
@@ -55,13 +55,19 @@ export function FormularioProducto({ producto, categorias, onGuardado, onAbrirAj
     setPerdida(false); // si cambian los montos, hay que volver a confirmar
   }
 
+  // Vista previa de lo que se gana (o pierde) por cada unidad o kilo vendido.
+  const venta = parsearMonto(precioVenta);
+  const costoNumero = parsearMonto(costo);
+  const hayMargen = !Number.isNaN(venta) && !Number.isNaN(costoNumero) && venta > 0;
+  const margen = hayMargen ? venta - costoNumero : 0;
+  const porcentaje = hayMargen ? Math.round((margen / venta) * 100) : 0;
+  const porCada = unidad === 'kilo' ? 'kilo vendido' : 'unidad vendida';
+
   async function guardar(e: FormEvent) {
     e.preventDefault();
     setError('');
     setErrorCodigo('');
 
-    const venta = parsearMonto(precioVenta);
-    const costoNumero = parsearMonto(costo);
     if (Number.isNaN(venta) || venta <= 0) {
       setError('El precio de venta debe ser un monto en pesos mayor a 0, sin decimales');
       return;
@@ -119,69 +125,94 @@ export function FormularioProducto({ producto, categorias, onGuardado, onAbrirAj
   }
 
   return (
-    <Modal titulo={edicion ? 'Editar producto' : 'Nuevo producto'} idTitulo="titulo-producto" onCerrar={onCerrar}>
+    <Modal
+      titulo={edicion ? 'Editar producto' : 'Nuevo producto'}
+      subtitulo={edicion ? producto!.nombre : 'Completa lo básico; el stock inicial es opcional.'}
+      idTitulo="titulo-producto"
+      onCerrar={onCerrar}
+    >
       <form onSubmit={guardar}>
-        <div className="formulario-columnas">
-          <label className="campo campo--completo">Nombre
-            <input value={nombre} onChange={(e) => setNombre(e.target.value)} required maxLength={150} />
-          </label>
-
-          <label className="campo">Código de barras (opcional)
-            <input value={codigo} onChange={(e) => setCodigo(e.target.value)} maxLength={20} />
-          </label>
-          <label className="campo">Categoría
-            <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} required>
-              <option value="" disabled>Elige una categoría</option>
-              {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
-          </label>
-          {errorCodigo && <p role="alert" className="error-campo campo--completo">{errorCodigo}</p>}
-
-          <label className="campo">Se vende por
-            <select value={unidad} onChange={(e) => setUnidad(e.target.value as UnidadMedida)}
-              disabled={conHistoria}>
-              <option value="unidad">Unidad</option>
-              <option value="kilo">Kilo</option>
-            </select>
-          </label>
-          <label className="campo">Stock mínimo (0 = sin alerta)
-            <input value={stockMinimo} onChange={(e) => setStockMinimo(e.target.value)}
-              inputMode="decimal" placeholder={unidad === 'kilo' ? 'Ej: 2,5' : 'Ej: 6'} />
-          </label>
-          {conHistoria && (
-            <p className="ayuda campo--completo">
-              La unidad no se puede cambiar: el producto ya tiene movimientos.
-            </p>
-          )}
-
-          <label className="campo">Precio de venta (CLP)
-            <input value={precioVenta} onChange={(e) => cambiarPrecio(setPrecioVenta, e.target.value)}
-              inputMode="numeric" required />
-          </label>
-          <label className="campo">Costo (CLP)
-            <input value={costo} onChange={(e) => cambiarPrecio(setCosto, e.target.value)}
-              inputMode="numeric" required />
-          </label>
-
-          {!edicion && (
-            <label className="campo campo--completo">Stock inicial (opcional)
-              <input value={stockInicial} onChange={(e) => setStockInicial(e.target.value)}
-                inputMode="decimal" placeholder={unidad === 'kilo' ? 'Ej: 10,5' : 'Ej: 24'} />
+        <fieldset className="grupo">
+          <legend>Datos del producto</legend>
+          <div className="formulario-columnas">
+            <label className="campo campo--completo">Nombre
+              <input value={nombre} onChange={(e) => setNombre(e.target.value)} required maxLength={150}
+                autoFocus={!edicion} />
             </label>
-          )}
-          {edicion && producto && (
-            <p className="ayuda campo--completo">
-              Stock actual: <strong>{formatearCantidad(producto.stock, producto.unidad_medida)}</strong>.
-              El stock no se edita aquí.{' '}
-              {onAbrirAjuste && (
-                <button type="button" className="boton boton--pequeno boton--secundario"
-                  onClick={() => onAbrirAjuste(producto)}>
-                  Ajustar stock
-                </button>
-              )}
-            </p>
-          )}
-        </div>
+
+            <label className="campo">Categoría
+              <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} required>
+                <option value="" disabled>Elige una categoría</option>
+                {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+            </label>
+            <label className="campo">Código de barras (opcional)
+              <input value={codigo} onChange={(e) => setCodigo(e.target.value)} maxLength={20} />
+            </label>
+            {errorCodigo && <p role="alert" className="error-campo campo--completo">{errorCodigo}</p>}
+          </div>
+        </fieldset>
+
+        <fieldset className="grupo">
+          <legend>Precio</legend>
+          <div className="formulario-columnas">
+            <label className="campo">Precio de venta (CLP)
+              <input value={precioVenta} onChange={(e) => cambiarPrecio(setPrecioVenta, e.target.value)}
+                inputMode="numeric" placeholder="Ej: 1.290" required />
+            </label>
+            <label className="campo">Costo (CLP)
+              <input value={costo} onChange={(e) => cambiarPrecio(setCosto, e.target.value)}
+                inputMode="numeric" placeholder="Ej: 950" required />
+            </label>
+            {hayMargen && (
+              <p className={margen < 0 ? 'margen-vista margen-vista--perdida campo--completo' : 'margen-vista campo--completo'}>
+                {margen < 0
+                  ? `Pierdes ${formatearClp(-margen)} por cada ${porCada}`
+                  : `Ganas ${formatearClp(margen)} por cada ${porCada} (${porcentaje} % del precio)`}
+              </p>
+            )}
+          </div>
+        </fieldset>
+
+        <fieldset className="grupo">
+          <legend>Stock</legend>
+          <div className="formulario-columnas">
+            <label className="campo">Se vende por
+              <select value={unidad} onChange={(e) => setUnidad(e.target.value as UnidadMedida)}
+                disabled={conHistoria}>
+                <option value="unidad">Unidad</option>
+                <option value="kilo">Kilo</option>
+              </select>
+            </label>
+            <label className="campo">Stock mínimo (0 = sin alerta)
+              <input value={stockMinimo} onChange={(e) => setStockMinimo(e.target.value)}
+                inputMode="decimal" placeholder={unidad === 'kilo' ? 'Ej: 2,5' : 'Ej: 6'} />
+            </label>
+            {conHistoria && (
+              <p className="ayuda campo--completo">
+                La unidad no se puede cambiar: el producto ya tiene movimientos.
+              </p>
+            )}
+            {!edicion && (
+              <label className="campo campo--completo">Stock inicial (opcional)
+                <input value={stockInicial} onChange={(e) => setStockInicial(e.target.value)}
+                  inputMode="decimal" placeholder={unidad === 'kilo' ? 'Ej: 10,5' : 'Ej: 24'} />
+              </label>
+            )}
+            {edicion && producto && (
+              <p className="ayuda campo--completo">
+                Stock actual: <strong>{formatearCantidad(producto.stock, producto.unidad_medida)}</strong>.
+                El stock no se edita aquí.{' '}
+                {onAbrirAjuste && (
+                  <button type="button" className="boton boton--pequeno boton--secundario"
+                    onClick={() => onAbrirAjuste(producto)}>
+                    Ajustar stock
+                  </button>
+                )}
+              </p>
+            )}
+          </div>
+        </fieldset>
 
         {perdida && (
           <p role="alert" className="alerta alerta--aviso">
@@ -193,7 +224,7 @@ export function FormularioProducto({ producto, categorias, onGuardado, onAbrirAj
 
         <div className="acciones">
           <button type="submit" className="boton" disabled={guardando}>
-            {perdida ? 'Guardar de todos modos' : 'Guardar'}
+            {perdida ? 'Guardar de todos modos' : edicion ? 'Guardar cambios' : 'Crear producto'}
           </button>
           <button type="button" className="boton boton--secundario" onClick={onCerrar}>Cancelar</button>
         </div>

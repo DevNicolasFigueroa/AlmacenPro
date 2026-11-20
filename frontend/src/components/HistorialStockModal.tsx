@@ -36,9 +36,12 @@ export function HistorialStockModal({ producto, onCerrar }: Props) {
   }, [producto.id]);
 
   return (
-    <Modal titulo="Historial de stock" idTitulo="titulo-historial" onCerrar={onCerrar}>
-      <p><strong>{producto.nombre}</strong></p>
-
+    <Modal
+      titulo="Historial de stock"
+      subtitulo={producto.nombre}
+      idTitulo="titulo-historial"
+      onCerrar={onCerrar}
+    >
       {error && <p role="alert" className="alerta alerta--error">{error}</p>}
       {!movimientos && !error && <p>Cargando…</p>}
       {movimientos && movimientos.length === 0 && (
@@ -64,15 +67,16 @@ export function HistorialStockModal({ producto, onCerrar }: Props) {
                   <td>{formatearFecha(m.creado_en)}</td>
                   <td>{m.usuario_nombre}</td>
                   <td>{NOMBRE_MOTIVO[m.tipo]}</td>
-                  <td className="numero">
-                    {m.cantidad > 0 ? '+' : ''}{formatearCantidad(m.cantidad, producto.unidad_medida)}
+                  <td className={`numero ${m.cantidad > 0 ? 'cantidad--mas' : m.cantidad < 0 ? 'cantidad--menos' : ''}`}>
+                    {m.cantidad > 0 ? '+' : m.cantidad < 0 ? '−' : ''}
+                    {formatearCantidad(Math.abs(m.cantidad), producto.unidad_medida)}
                   </td>
                   <td className="numero">
                     {formatearCantidad(m.stock_antes, producto.unidad_medida)}
                     {' → '}
                     {formatearCantidad(m.stock_despues, producto.unidad_medida)}
                   </td>
-                  <td>{m.nota}</td>
+                  <td className="historial-nota">{m.nota}</td>
                 </tr>
               ))}
             </tbody>

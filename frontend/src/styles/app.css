@@ -369,41 +369,9 @@ body {
   color: var(--tinta-suave);
 }
 
-/* Stock: cifra con su estado (agotado, bajo, no disponible) */
-
-.stock-cifra {
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-
 .chip--alerta {
   background: var(--alerta-suave);
   color: #6b4a00;
-}
-
-.fila--apagada td {
-  opacity: 0.6;
-}
-
-.filtros {
-  margin-bottom: 8px;
-}
-
-.resumen-stock {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 16px;
-  margin: 0 0 16px;
-  padding: 12px 16px;
-  border-left: 5px solid var(--letrero);
-  border-radius: 8px;
-  background: var(--alerta-suave);
-  font-weight: 700;
-}
-
-.resumen-stock a {
-  color: var(--botella);
 }
 
 /* Estados vacíos: invitan a actuar o explican qué llega */
@@ -527,41 +495,6 @@ body {
   font-family: var(--display);
   font-size: 1.9rem;
   font-weight: 400;
-}
-
-/* Variante ancha para formularios y tablas dentro de una ventana */
-
-.sobre--ancho {
-  width: min(720px, 100%);
-  max-height: 92vh;
-  overflow-y: auto;
-}
-
-.sobre--ancho .acciones {
-  margin-top: 16px;
-}
-
-.formulario-columnas {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 16px;
-}
-
-.formulario-columnas .campo--completo {
-  grid-column: 1 / -1;
-}
-
-@media (max-width: 600px) {
-  .formulario-columnas {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.error-campo {
-  margin: -8px 0 12px;
-  color: #6e1d0c;
-  font-size: 0.9rem;
-  font-weight: 700;
 }
 
 .sobre-valor {

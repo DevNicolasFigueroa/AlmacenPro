@@ -12,10 +12,10 @@ interface Props {
   onCerrar: () => void;
 }
 
-const MOTIVOS: Record<TipoAjuste, { nombre: string; ayuda: string }> = {
-  reposicion: { nombre: 'Reposición', ayuda: 'Llegó mercadería: suma al stock' },
-  merma: { nombre: 'Merma', ayuda: 'Se perdió, venció o se dañó: resta del stock' },
-  correccion: { nombre: 'Corrección', ayuda: 'Contaste el stock real: lo fija en esa cantidad' },
+const MOTIVOS: Record<TipoAjuste, { nombre: string; signo: string; ayuda: string }> = {
+  reposicion: { nombre: 'Reposición', signo: '+', ayuda: 'Llegó mercadería y se suma' },
+  merma: { nombre: 'Merma', signo: '−', ayuda: 'Se perdió, venció o se dañó' },
+  correccion: { nombre: 'Corrección', signo: '=', ayuda: 'Contaste y fijas el stock real' },
 };
 
 export function AjusteStockModal({ producto, onAjustado, onCerrar }: Props) {
@@ -41,6 +41,7 @@ export function AjusteStockModal({ producto, onAjustado, onCerrar }: Props) {
   }
 
   const puedeConfirmar = analisis !== null && 'valor' in analisis && !aviso && !guardando;
+  const baja = quedara !== null && quedara < producto.stock;
 
   async function confirmar(e: FormEvent) {
     e.preventDefault();
@@ -62,29 +63,35 @@ export function AjusteStockModal({ producto, onAjustado, onCerrar }: Props) {
   }
 
   return (
-    <Modal titulo="Ajustar stock" idTitulo="titulo-ajuste" onCerrar={onCerrar}>
-      <p>
-        <strong>{producto.nombre}</strong>
-        {!producto.activo && <> <span className="chip chip--apagado">No disponible</span></>}
-        <br />
-        Stock actual: <strong>{formatearCantidad(producto.stock, producto.unidad_medida)}</strong>
-      </p>
+    <Modal
+      titulo="Ajustar stock"
+      subtitulo={`${producto.nombre}. Stock actual: ${formatearCantidad(producto.stock, producto.unidad_medida)}`}
+      idTitulo="titulo-ajuste"
+      onCerrar={onCerrar}
+    >
+      {!producto.activo && (
+        <p className="alerta alerta--aviso">Este producto está desactivado, pero aún puedes ajustar su stock.</p>
+      )}
 
       <form onSubmit={confirmar}>
-        <label className="campo">Motivo
-          <select value={tipo} onChange={(e) => setTipo(e.target.value as TipoAjuste)}>
-            {(Object.keys(MOTIVOS) as TipoAjuste[]).map((clave) => (
-              <option key={clave} value={clave}>{MOTIVOS[clave].nombre}</option>
-            ))}
-          </select>
-        </label>
-        <p className="ayuda">{MOTIVOS[tipo].ayuda}</p>
+        <div className="motivos" role="radiogroup" aria-label="Motivo del ajuste">
+          {(Object.keys(MOTIVOS) as TipoAjuste[]).map((clave) => (
+            <label key={clave} className={tipo === clave ? 'motivo motivo--activo' : 'motivo'}>
+              <input type="radio" name="motivo" value={clave} checked={tipo === clave}
+                onChange={() => setTipo(clave)} />
+              <span className="motivo-nombre"><b aria-hidden="true">{MOTIVOS[clave].signo}</b>{MOTIVOS[clave].nombre}</span>
+              <span className="motivo-ayuda">{MOTIVOS[clave].ayuda}</span>
+            </label>
+          ))}
+        </div>
 
         <label className="campo">
           {tipo === 'correccion' ? 'Stock real contado' : 'Cantidad'}
-          {producto.unidad_medida === 'kilo' ? ' (kg)' : ' (unidades)'}
-          <input value={cantidad} onChange={(e) => setCantidad(e.target.value)}
-            inputMode="decimal" required autoFocus />
+          <div className="cantidad-caja">
+            <input value={cantidad} onChange={(e) => setCantidad(e.target.value)}
+              inputMode="decimal" required autoFocus />
+            <span className="cantidad-unidad">{producto.unidad_medida === 'kilo' ? 'kg' : 'u.'}</span>
+          </div>
         </label>
 
         <label className="campo">Nota (opcional)
@@ -93,16 +100,20 @@ export function AjusteStockModal({ producto, onAjustado, onCerrar }: Props) {
         </label>
 
         {quedara !== null && !aviso && (
-          <p role="status" className="alerta alerta--ok">
-            Stock actual {formatearCantidad(producto.stock, producto.unidad_medida)}
-            {' → '}quedará en <strong>{formatearCantidad(quedara, producto.unidad_medida)}</strong>
+          <p role="status" className={baja ? 'cambio-stock cambio-stock--baja' : 'cambio-stock'}>
+            <span className="cambio-stock-antes">
+              Ahora {formatearCantidad(producto.stock, producto.unidad_medida)}
+            </span>
+            <span className="cambio-stock-despues">
+              Quedará en {formatearCantidad(quedara, producto.unidad_medida)}
+            </span>
           </p>
         )}
         {aviso && <p role="alert" className="alerta alerta--error">{aviso}</p>}
         {error && <p role="alert" className="alerta alerta--error">{error}</p>}
 
         <div className="acciones">
-          <button type="submit" className="boton" disabled={!puedeConfirmar}>Confirmar</button>
+          <button type="submit" className="boton" disabled={!puedeConfirmar}>Confirmar ajuste</button>
           <button type="button" className="boton boton--secundario" onClick={onCerrar}>Cancelar</button>
         </div>
       </form>
