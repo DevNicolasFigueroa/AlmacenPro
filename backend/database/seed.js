@@ -6,7 +6,7 @@ import { cifrar, generarCodigoRecuperacion } from '../src/services/credenciales.
 
 const nombreAdmin = process.env.ADMIN_NOMBRE ?? 'Administrador';
 const usuarioAdmin = process.env.ADMIN_USUARIO ?? 'admin';
-const passwordAdmin = process.env.ADMIN_PASSWORD ?? 'admin123'; // cambiar al primer ingreso
+const passwordAdmin = process.env.ADMIN_PASSWORD ?? 'admin123'; // se cambia en el primer ingreso
 
 async function crearAdministrador() {
   const existente = await usuariosModelo.buscarPorUsuario(usuarioAdmin);
@@ -25,11 +25,13 @@ async function crearAdministrador() {
     passwordHash,
     rol: 'administrador',
     codigoRecuperacionHash: codigoHash,
+    // RF-20: la contraseña inicial es temporal y debe cambiarse al primer ingreso.
+    requiereCambioContrasena: true,
   });
 
   console.log('Usuario administrador creado:');
   console.log(`  Usuario:   ${usuarioAdmin}`);
-  console.log(`  Contraseña: ${passwordAdmin} (definida en ADMIN_PASSWORD; cámbiala al primer ingreso)`);
+  console.log(`  Contraseña: ${passwordAdmin} (el sistema pedirá cambiarla al primer ingreso)`);
   console.log(`  CÓDIGO DE RECUPERACIÓN: ${codigoRecuperacion}`);
   console.log('  Guarda este código en un lugar seguro: no se volverá a mostrar');
 }

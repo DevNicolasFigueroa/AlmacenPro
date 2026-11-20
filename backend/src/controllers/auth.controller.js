@@ -12,8 +12,10 @@ import { ErrorApi } from '../middlewares/errores.js';
 import {
   credencialesCompletas,
   esContrasenaValida,
+  esIdentificadorValido,
   esRolValido,
   estadoDeBloqueo,
+  normalizarIdentificador,
   puedeCerrarSesion,
   puedeDesactivar,
   puedeRecuperarAdministrador,
@@ -31,13 +33,18 @@ function datosPublicos(usuario) {
 
 export async function iniciarSesion(req, res) {
   const { usuario, password } = req.body ?? {};
-  const ahora = new Date();
+  const hoy = new Date();
 
-  if (!credencialesCompletas(usuario, password)) {
-    throw new ErrorApi(400, 'Debes ingresar usuario y contraseña');
+  // RF-3: un dato faltante no se contabiliza como intento fallido.
+  if (!String(usuario ?? '').trim()) {
+    throw new ErrorApi(400, 'Debes ingresar tu usuario');
+  }
+  if (!String(password ?? '').trim()) {
+    throw new ErrorApi(400, 'Debes ingresar tu contraseña');
   }
 
-  const usuarioEncontrado = await usuariosModelo.buscarPorUsuario(String(usuario).trim());
+  const usuarioNormalizado = normalizarIdentificador(usuario);
+  const usuarioEncontrado = await usuariosModelo.buscarPorUsuario(usuarioNormalizado);
 
   // Para cuentas inexistentes se usa el mismo mensaje: no se revela si el usuario existe.
   if (!usuarioEncontrado) {
@@ -47,14 +54,14 @@ export async function iniciarSesion(req, res) {
   const bloqueo = estadoDeBloqueo(
     usuarioEncontrado.intentos_fallidos,
     usuarioEncontrado.bloqueado_hasta,
-    ahora
+    hoy
   );
   if (bloqueo.bloqueado) {
     throw new ErrorApi(429, `Demasiados intentos. Intenta nuevamente en ${bloqueo.minutosRestantes} minutos`);
   }
 
   if (!(await coincide(password, usuarioEncontrado.password_hash))) {
-    const siguiente = siguienteIntento(usuarioEncontrado.intentos_fallidos, false, ahora);
+    const siguiente = siguienteIntento(usuarioEncontrado.intentos_fallidos, false, hoy);
     await usuariosModelo.actualizarIntentos(usuarioEncontrado.id, siguiente);
 
     if (siguiente.intentos >= 5) {
@@ -97,14 +104,20 @@ export async function listarUsuarios(_req, res) {
 export async function crearCuenta(req, res) {
   const { nombre, usuario, password, rol = 'cajero' } = req.body ?? {};
 
-  if (!String(nombre ?? '').trim() || !String(usuario ?? '').trim()) {
-    throw new ErrorApi(400, 'Debes ingresar el nombre y el usuario de la cuenta');
+  if (!String(nombre ?? '').trim()) {
+    throw new ErrorApi(400, 'Debes ingresar el nombre de la persona');
   }
   if (!esRolValido(rol)) {
     throw new ErrorApi(400, 'El rol debe ser administrador o cajero');
   }
 
-  const usuarioNormalizado = String(usuario).trim();
+  const usuarioNormalizado = normalizarIdentificador(usuario);
+  if (!esIdentificadorValido(usuarioNormalizado)) {
+    throw new ErrorApi(
+      400,
+      'El usuario debe tener entre 3 y 50 caracteres: letras, números, punto, guion o guion bajo'
+    );
+  }
   if (await usuariosModelo.buscarPorUsuario(usuarioNormalizado)) {
     throw new ErrorApi(409, 'Ya existe una cuenta con ese usuario');
   }
@@ -116,8 +129,11 @@ export async function crearCuenta(req, res) {
 
   if (rol === 'administrador') {
     // RF-12: el administrador elige su contraseña; RF-18: recibe además un código de respaldo.
-    if (!esContrasenaValida(password)) {
-      throw new ErrorApi(400, 'La contraseña debe tener al menos 8 caracteres');
+    if (!esContrasenaValida(password, usuarioNormalizado)) {
+      throw new ErrorApi(
+        400,
+        'La contraseña debe tener al menos 8 caracteres y no puede ser igual al usuario'
+      );
     }
     passwordHash = await cifrar(password);
     codigoRecuperacion = generarCodigoRecuperacion();
@@ -202,13 +218,15 @@ export async function restablecerContrasenaCajero(req, res) {
 export async function cambiarContrasena(req, res) {
   const { contrasenaActual, nuevaContrasena } = req.body ?? {};
 
-  if (!esContrasenaValida(nuevaContrasena)) {
-    throw new ErrorApi(400, 'La nueva contraseña debe tener al menos 8 caracteres');
-  }
-
   const usuario = await usuariosModelo.buscarPorId(req.usuario.id);
   if (!usuario || !(await coincide(contrasenaActual, usuario.password_hash))) {
     throw new ErrorApi(403, 'La contraseña actual es incorrecta');
+  }
+  if (!esContrasenaValida(nuevaContrasena, usuario.usuario)) {
+    throw new ErrorApi(
+      400,
+      'La nueva contraseña debe tener al menos 8 caracteres y no puede ser igual al usuario'
+    );
   }
 
   await usuariosModelo.guardarContrasena(usuario.id, await cifrar(nuevaContrasena));
@@ -218,11 +236,17 @@ export async function cambiarContrasena(req, res) {
 export async function recuperarContrasenaAdmin(req, res) {
   const { usuario, codigoRecuperacion, nuevaContrasena } = req.body ?? {};
 
-  if (!credencialesCompletas(usuario, codigoRecuperacion) || !esContrasenaValida(nuevaContrasena)) {
-    throw new ErrorApi(400, 'Completa usuario, código de recuperación y nueva contraseña (mínimo 8 caracteres)');
+  if (
+    !credencialesCompletas(usuario, codigoRecuperacion)
+    || !esContrasenaValida(nuevaContrasena, normalizarIdentificador(usuario))
+  ) {
+    throw new ErrorApi(
+      400,
+      'Completa usuario, código de recuperación y nueva contraseña válida (mínimo 8 caracteres, distinta del usuario)'
+    );
   }
 
-  const objetivo = await usuariosModelo.buscarPorUsuario(String(usuario).trim());
+  const objetivo = await usuariosModelo.buscarPorUsuario(normalizarIdentificador(usuario));
   const codigoValido = objetivo
     ? await coincide(codigoRecuperacion, objetivo.codigo_recuperacion_hash)
     : false;
