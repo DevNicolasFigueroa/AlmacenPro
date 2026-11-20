@@ -36,6 +36,10 @@ export function App() {
     <>
       {usuario && (
         <nav>
+          {/* RF-17: se ve quién opera y con qué rol en un mesón compartido. */}
+          <span className="sesion-activa">
+            Sesión: {usuario.nombre} ({usuario.rol === 'administrador' ? 'Administrador' : 'Cajero'})
+          </span>
           <NavLink to="/ventas">Ventas</NavLink>
           <NavLink to="/inventario">Inventario</NavLink>
           {usuario.rol === 'administrador' && (
@@ -45,7 +49,7 @@ export function App() {
               <NavLink to="/usuarios">Cuentas</NavLink>
             </>
           )}
-          <button onClick={salir}>Cerrar sesión ({usuario.nombre})</button>
+          <button onClick={salir}>Cerrar sesión</button>
         </nav>
       )}
       {errorCierre && <p role="alert">{errorCierre}</p>}
