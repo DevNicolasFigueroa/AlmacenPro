@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import { RutaProtegida } from './components/RutaProtegida';
+import { ResumenStock } from './components/ResumenStock';
 import { VistaLogin } from './views/LoginView';
 import { VistaPuntoVenta } from './views/PuntoVentaView';
 import { VistaInventario } from './views/InventarioView';
@@ -65,7 +66,11 @@ export function App() {
             <RutaProtegida><VistaCambiarContrasena /></RutaProtegida>
           } />
           <Route path="/ventas" element={
-            <RutaProtegida><VistaPuntoVenta /></RutaProtegida>
+            <RutaProtegida>
+              {/* RF-33: al ingresar se ve cuántos productos necesitan reposición. */}
+              <ResumenStock />
+              <VistaPuntoVenta />
+            </RutaProtegida>
           } />
           <Route path="/inventario" element={
             <RutaProtegida>

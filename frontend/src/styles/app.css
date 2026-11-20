@@ -369,39 +369,41 @@ body {
   color: var(--tinta-suave);
 }
 
-/* Stock: barra que se compara con el mínimo del producto */
-
-.stock {
-  display: grid;
-  gap: 6px;
-  min-width: 150px;
-}
+/* Stock: cifra con su estado (agotado, bajo, no disponible) */
 
 .stock-cifra {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
 
-.stock-barra {
-  height: 10px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #dfe6dc;
+.chip--alerta {
+  background: var(--alerta-suave);
+  color: #6b4a00;
 }
 
-.stock-barra span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--exito);
+.fila--apagada td {
+  opacity: 0.6;
 }
 
-.stock--bajo .stock-barra span {
-  background: var(--sello);
+.filtros {
+  margin-bottom: 8px;
 }
 
-.stock--bajo .stock-cifra {
-  color: var(--sello);
+.resumen-stock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-left: 5px solid var(--letrero);
+  border-radius: 8px;
+  background: var(--alerta-suave);
+  font-weight: 700;
+}
+
+.resumen-stock a {
+  color: var(--botella);
 }
 
 /* Estados vacíos: invitan a actuar o explican qué llega */

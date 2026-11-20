@@ -75,6 +75,10 @@ export interface VentaCancelada {
   cajero_usuario: string;
 }
 
+export type UnidadMedida = 'unidad' | 'kilo';
+// El backend calcula estado_stock en cada lectura (spec 002, RF-31); la pantalla solo lo pinta.
+export type EstadoStock = 'agotado' | 'bajo' | 'normal' | 'sin_alerta';
+
 export interface Producto {
   id: number;
   codigo_barras: string | null;
@@ -82,12 +86,40 @@ export interface Producto {
   descripcion: string | null;
   categoria_id: number | null;
   categoria: string | null;
-  precio_costo?: string; // DECIMAL llega como string; solo para administradores (RF-12)
-  precio_venta: string;
+  precio_costo?: number; // solo para administradores (spec 001 RF-12; spec 002 RF-20)
+  precio_venta: number;
   stock: number;
   stock_minimo: number;
-  unidad_medida: string;
+  unidad_medida: UnidadMedida;
   activo: number;
+  estado_stock: EstadoStock;
+}
+
+export interface Categoria {
+  id: number;
+  nombre: string;
+}
+
+export interface ResumenStock {
+  stockBajo: number;
+  agotados: number;
+}
+
+export type TipoAjuste = 'merma' | 'reposicion' | 'correccion';
+export type TipoMovimiento = 'stock_inicial' | TipoAjuste | 'venta' | 'anulacion_venta';
+
+export interface MovimientoStock {
+  id: number;
+  producto_id: number;
+  tipo: TipoMovimiento;
+  cantidad: number; // diferencia con signo
+  stock_antes: number;
+  stock_despues: number;
+  nota: string | null;
+  venta_id: number | null;
+  creado_en: string;
+  usuario_nombre: string;
+  usuario: string;
 }
 
 export interface Cliente {

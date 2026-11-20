@@ -1,59 +1,90 @@
-// Inventario: consulta de stock con columnas según el rol (spec 001, RF-10 a RF-12).
-// El backend omite "precio_costo" para el cajero; aquí solo se decide qué columnas mostrar.
-import { useEffect, useState } from 'react';
+// Inventario: listado con filtros, estado de stock y acciones según el rol
+// (spec 001, RF-10 a RF-12; spec 002, RF-17 a RF-21 y RF-31).
+// El backend omite "precio_costo" para el cajero y calcula "estado_stock";
+// aquí solo se decide qué columnas y botones mostrar.
+import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api, mensajeError } from '../services/api';
 import { useAutenticacion } from '../context/AutenticacionContext';
-import type { Producto } from '../types';
+import { formatearCantidad, formatearClp } from '../utils/formato';
+import type { Categoria, EstadoStock, Producto } from '../types';
 
 interface Props {
   soloLectura?: boolean;
 }
 
-function formatearClp(valor: string | number | undefined) {
-  return Number(valor ?? 0).toLocaleString('es-CL', {
-    style: 'currency',
-    currency: 'CLP',
-    maximumFractionDigits: 0,
-  });
-}
+const FILTROS_DE_ESTADO = ['bajo', 'agotado'];
 
-// La barra compara el stock con tres veces el mínimo del producto; por debajo del mínimo se marca.
-function EstadoStock({ producto }: { producto: Producto }) {
-  const bajo = producto.stock <= producto.stock_minimo;
-  const referencia = Math.max(producto.stock_minimo * 3, producto.stock, 1);
-  const porcentaje = Math.round((producto.stock / referencia) * 100);
-
-  return (
-    <div className={bajo ? 'stock stock--bajo' : 'stock'}>
-      <span className="stock-cifra">
-        {producto.stock}
-        {bajo && <span className="chip chip--peligro" style={{ marginLeft: 8 }}>Stock bajo</span>}
-      </span>
-      <div
-        className="stock-barra"
-        role="img"
-        aria-label={`Stock al ${porcentaje}% de la referencia. Mínimo: ${producto.stock_minimo}`}
-      >
-        <span style={{ width: `${Math.min(porcentaje, 100)}%` }} />
-      </div>
-    </div>
-  );
+// RF-31, RF-34: agotado, stock bajo o no disponible (desactivado). Normal no lleva etiqueta.
+function EtiquetaEstado({ estado }: { estado: EstadoStock }) {
+  if (estado === 'agotado') return <span className="chip chip--peligro">Agotado</span>;
+  if (estado === 'bajo') return <span className="chip chip--alerta">Stock bajo</span>;
+  if (estado === 'sin_alerta') return <span className="chip chip--apagado">No disponible</span>;
+  return null;
 }
 
 export function VistaInventario({ soloLectura = false }: Props) {
   const { usuario } = useAutenticacion();
+  const [parametros, setParametros] = useSearchParams();
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [busqueda, setBusqueda] = useState('');
+  const [categoria, setCategoria] = useState('');
+  const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
 
   const esAdministrador = usuario?.rol === 'administrador';
+  const estadoParametro = parametros.get('estado') ?? '';
+  const estadoFiltro = FILTROS_DE_ESTADO.includes(estadoParametro) ? estadoParametro : '';
+
+  const cargar = useCallback(async () => {
+    setError('');
+    try {
+      const { data } = await api.get<Producto[]>('/productos', {
+        params: {
+          buscar: busqueda || undefined,
+          categoria: categoria || undefined,
+          estadoStock: estadoFiltro || undefined,
+        },
+      });
+      setProductos(data);
+    } catch (err) {
+      setError(mensajeError(err));
+    }
+  }, [busqueda, categoria, estadoFiltro]);
+
+  useEffect(() => { cargar(); }, [cargar]);
 
   useEffect(() => {
-    setError('');
-    api.get<Producto[]>('/productos', { params: { buscar: busqueda } })
-      .then(({ data }) => setProductos(data))
+    api.get<Categoria[]>('/productos/categorias')
+      .then(({ data }) => setCategorias(data))
       .catch((err) => setError(mensajeError(err)));
-  }, [busqueda]);
+  }, []);
+
+  function cambiarEstadoFiltro(valor: string) {
+    const siguiente = new URLSearchParams(parametros);
+    if (valor) siguiente.set('estado', valor);
+    else siguiente.delete('estado');
+    setParametros(siguiente, { replace: true });
+  }
+
+  // RF-13, RF-14: desactivar o reactivar; el stock y el historial no cambian.
+  async function cambiarActivo(producto: Producto) {
+    setError('');
+    setMensaje('');
+    try {
+      const { data } = await api.patch<{ mensaje: string }>(
+        `/productos/${producto.id}/estado`,
+        { activo: !producto.activo }
+      );
+      setMensaje(`${data.mensaje}: ${producto.nombre}`);
+      await cargar();
+    } catch (err) {
+      setError(mensajeError(err));
+    }
+  }
+
+  const hayFiltros = Boolean(busqueda || categoria || estadoFiltro);
 
   return (
     <section className="pagina">
@@ -68,11 +99,32 @@ export function VistaInventario({ soloLectura = false }: Props) {
         </div>
       </header>
 
-      <label className="campo">
-        Buscar producto
-        <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-      </label>
+      <div className="campo-fila filtros">
+        <label className="campo">
+          Buscar producto
+          <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Nombre o código de barras" />
+        </label>
+        <label className="campo">
+          Categoría
+          <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+            <option value="">Todas</option>
+            {categorias.map((c) => (
+              <option key={c.id} value={c.id}>{c.nombre}</option>
+            ))}
+          </select>
+        </label>
+        <label className="campo">
+          Estado del stock
+          <select value={estadoFiltro} onChange={(e) => cambiarEstadoFiltro(e.target.value)}>
+            <option value="">Todos</option>
+            <option value="bajo">Stock bajo</option>
+            <option value="agotado">Agotados</option>
+          </select>
+        </label>
+      </div>
 
+      {mensaje && <p role="status" className="alerta alerta--ok">{mensaje}</p>}
       {error && <p role="alert" className="alerta alerta--error">{error}</p>}
 
       {productos.length > 0 && (
@@ -81,30 +133,55 @@ export function VistaInventario({ soloLectura = false }: Props) {
             <thead>
               <tr>
                 <th>Producto</th>
+                <th>Categoría</th>
                 {esAdministrador && <th className="numero">Costo</th>}
                 <th className="numero">Precio de venta</th>
                 {esAdministrador && <th className="numero">Margen</th>}
                 <th>Stock</th>
-                <th>Unidad</th>
+                <th>Estado</th>
+                {esAdministrador && <th>Acciones</th>}
               </tr>
             </thead>
             <tbody>
               {productos.map((producto) => (
-                <tr key={producto.id}>
-                  <td>{producto.nombre}</td>
+                <tr key={producto.id} className={producto.activo ? undefined : 'fila--apagada'}>
+                  <td>
+                    {producto.nombre}
+                    {producto.codigo_barras && (
+                      <div className="nota-bloqueo">{producto.codigo_barras}</div>
+                    )}
+                  </td>
+                  <td>{producto.categoria ?? 'Sin categoría'}</td>
                   {esAdministrador && (
                     <td className="numero">{formatearClp(producto.precio_costo)}</td>
                   )}
                   <td className="numero">{formatearClp(producto.precio_venta)}</td>
                   {esAdministrador && (
                     <td className="numero">
-                      {formatearClp(
-                        Number(producto.precio_venta) - Number(producto.precio_costo ?? 0)
-                      )}
+                      {formatearClp(producto.precio_venta - (producto.precio_costo ?? 0))}
                     </td>
                   )}
-                  <td><EstadoStock producto={producto} /></td>
-                  <td>{producto.unidad_medida}</td>
+                  <td>
+                    <span className="stock-cifra">
+                      {formatearCantidad(producto.stock, producto.unidad_medida)}
+                    </span>
+                    {producto.stock_minimo > 0 && (
+                      <div className="nota-bloqueo">
+                        Mínimo: {formatearCantidad(producto.stock_minimo, producto.unidad_medida)}
+                      </div>
+                    )}
+                  </td>
+                  <td><EtiquetaEstado estado={producto.estado_stock} /></td>
+                  {esAdministrador && (
+                    <td>
+                      <div className="acciones">
+                        <button type="button" className="boton boton--pequeno boton--secundario"
+                          onClick={() => cambiarActivo(producto)}>
+                          {producto.activo ? 'Desactivar' : 'Reactivar'}
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -116,8 +193,8 @@ export function VistaInventario({ soloLectura = false }: Props) {
         <div className="vacio">
           <strong>No hay productos para mostrar</strong>
           <p>
-            {busqueda
-              ? `Ningún producto coincide con "${busqueda}". Revisa la búsqueda.`
+            {hayFiltros
+              ? 'Ningún producto coincide con los filtros. Revisa la búsqueda.'
               : 'Cuando se carguen productos en el almacén, aparecerán aquí con su stock.'}
           </p>
         </div>
