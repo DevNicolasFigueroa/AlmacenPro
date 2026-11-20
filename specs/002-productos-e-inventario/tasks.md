@@ -16,7 +16,7 @@ Las pruebas de integración y todo lo que toque MySQL requieren una instancia re
 - [x] **T3. Crear la migración 003 y actualizar `schema.sql` (≈25 min).** RF-7, RF-8, RF-26, RF-29, RNF-1, RNF-7.
   Hecho cuando: ambos archivos definen `stock` y `stock_minimo` como `DECIMAL(10,3)`, `unidad_medida` como `ENUM('unidad','kilo')`, `CHECK (stock >= 0)` y la tabla `movimientos_stock` con su índice; la migración normaliza unidades previas, copia el stock existente como "stock inicial" y avisa antes si hay stock negativo; ambos son coherentes entre sí y con el plan (revisión de diff). *No verificada contra MySQL real.*
 
-- [ ] **T4. Implementar el modelo de movimientos y las consultas de lectura de productos (≈30 min).** RF-16, RF-17, RF-18, RF-19, RF-20, RF-28, RF-29, RF-33, RNF-6.
+- [x] **T4. Implementar el modelo de movimientos y las consultas de lectura de productos (≈30 min).** RF-16, RF-17, RF-18, RF-19, RF-20, RF-28, RF-29, RF-33, RNF-6.
   Hecho cuando: existen `movimientosStock.model.js` (solo `insertar` y `listarPorProducto`, sin modificar ni borrar) y, en `productos.model.js`, el listado con `buscar` y `categoria` que incluye desactivados, `buscarPorId`, `buscarPorCodigoBarras`, `listarCategorias`, la consulta de vendibles (solo activos) y el costo solo para administrador; los valores `DECIMAL` salen como número; `node --check` y la importación de los módulos no dan errores.
 
 - [ ] **T5. Implementar las escrituras de productos y el ajuste transaccional de stock en el modelo (≈30 min).** RF-1, RF-5, RF-8, RF-9, RF-10, RF-11, RF-12, RF-13, RF-14, RF-15, RF-22, RF-23, RF-25, RF-26, RF-27, RF-30, RNF-1, RNF-2.
