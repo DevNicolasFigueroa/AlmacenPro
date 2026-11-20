@@ -26,6 +26,7 @@ function datosPublicos(usuario) {
   return {
     id: usuario.id,
     nombre: usuario.nombre,
+    usuario: usuario.usuario,
     rol: usuario.rol,
     requiereCambioContrasena: Boolean(usuario.requiere_cambio_contrasena),
   };

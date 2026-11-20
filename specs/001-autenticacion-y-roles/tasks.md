@@ -30,7 +30,7 @@ Las tareas completadas y subidas quedan marcadas con `[x]`.
 - [x] **T8. Completar la vista de gestión de cuentas (≈30 min).** RF-18, RF-19, RF-20, RF-21, RF-23, RF-24, RF-25, RF-26, RF-27.
   Hecho cuando: el administrador crea cuentas, ve cada secreto una sola vez, activa o desactiva, restablece contraseñas y ve deshabilitadas las acciones que dejarían sin administrador; no existe botón de eliminar, cambiar rol ni regenerar código.
 
-- [ ] **T9. Ajustar las vistas de ingreso, cambio y recuperación de contraseña (≈25 min).** RF-1, RF-2, RF-3, RF-22, RF-28, RF-29, RF-31.
+- [x] **T9. Ajustar las vistas de ingreso, cambio y recuperación de contraseña (≈25 min).** RF-1, RF-2, RF-3, RF-22, RF-28, RF-29, RF-31.
   Hecho cuando: el login muestra errores genéricos y el tiempo de bloqueo; el cambio de contraseña exige la actual y la política; la recuperación solo funciona para administrador con código válido y no permite cajeros.
 
 - [ ] **T10. Escribir las pruebas de integración y completar el checklist del MVP (≈30 min).** RF-1–12, RF-14–29, RF-31, RF-33–39.

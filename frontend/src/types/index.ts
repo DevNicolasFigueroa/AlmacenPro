@@ -4,6 +4,7 @@ export type Rol = 'administrador' | 'cajero';
 export interface Usuario {
   id: number;
   nombre: string;
+  usuario: string;
   rol: Rol;
   requiereCambioContrasena: boolean;
 }

@@ -61,8 +61,13 @@ export function VistaLogin() {
         </button>
       </form>
       <p>
-        ¿Olvidaste tu contraseña? Usa tu código de recuperación:{' '}
+        ¿Olvidaste tu contraseña?{' '}
         <a href="/recuperar-contrasena">Recuperar acceso</a>
+      </p>
+      {/* RF-31: la recuperación es solo del administrador; el cajero depende del administrador. */}
+      <p className="aviso-recuperacion">
+        Solo el administrador puede recuperar su acceso con código. Si eres cajero,
+        pídele al administrador que te genere una nueva contraseña.
       </p>
     </div>
   );
