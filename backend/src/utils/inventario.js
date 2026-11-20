@@ -154,3 +154,103 @@ export function validarDatosProducto(datos, modo = 'creacion') {
 
   return { valores };
 }
+
+// ---------------------------------------------------------------------------
+// Ajuste manual de stock, historial y estado de stock (T2)
+// ---------------------------------------------------------------------------
+export const TIPOS_AJUSTE = ['merma', 'reposicion', 'correccion'];
+export const LONGITUD_MAXIMA_NOTA = 255;
+
+function aviso(codigo, mensaje, stockActual) {
+  return { ok: false, codigo, mensaje, stockActual };
+}
+
+// RF-22–25: la merma resta, la reposición suma y la corrección fija el stock real.
+// Devuelve { ok: true, stockNuevo, diferencia } o { ok: false, codigo, mensaje, stockActual }.
+export function calcularAjuste({ tipo, cantidad, stockActual, unidad }) {
+  const actual = redondearCantidad(stockActual);
+
+  if (!TIPOS_AJUSTE.includes(tipo)) {
+    return aviso('MOTIVO_INVALIDO', 'Elige el motivo: merma, reposición o corrección', actual);
+  }
+
+  const formato = unidad === 'kilo' ? 'un número con hasta 3 decimales' : 'un número entero';
+  if (!cantidadValidaParaUnidad(cantidad, unidad)) {
+    return aviso('CANTIDAD_INVALIDA', `La cantidad debe ser ${formato}, de 0 o más`, actual);
+  }
+
+  const numero = redondearCantidad(comoNumero(cantidad));
+  // Solo la corrección admite 0 (contar y dejar el stock en cero).
+  if (tipo !== 'correccion' && numero <= 0) {
+    return aviso('CANTIDAD_INVALIDA', 'La cantidad debe ser mayor a 0', actual);
+  }
+
+  let stockNuevo;
+  if (tipo === 'merma') stockNuevo = redondearCantidad(actual - numero);
+  else if (tipo === 'reposicion') stockNuevo = redondearCantidad(actual + numero);
+  else stockNuevo = numero;
+
+  if (stockNuevo < 0) {
+    return aviso('STOCK_INSUFICIENTE', `La merma supera el stock disponible (${actual})`, actual);
+  }
+  if (stockNuevo > CANTIDAD_MAXIMA) {
+    return aviso('CANTIDAD_INVALIDA', 'El stock resultante supera el máximo permitido', actual);
+  }
+
+  return { ok: true, stockNuevo, diferencia: redondearCantidad(stockNuevo - actual) };
+}
+
+// RF-8, RF-26: arma la fila del historial. La cantidad es la diferencia con signo
+// (positiva suma, negativa resta) y la fecha llega en "hoy".
+export function armarMovimiento({
+  productoId, usuarioId, tipo, stockAntes, stockDespues, nota, ventaId = null, hoy,
+}) {
+  const texto = String(nota ?? '').trim().slice(0, LONGITUD_MAXIMA_NOTA);
+  return {
+    productoId,
+    usuarioId,
+    tipo,
+    cantidad: redondearCantidad(Number(stockDespues) - Number(stockAntes)),
+    stockAntes: redondearCantidad(stockAntes),
+    stockDespues: redondearCantidad(stockDespues),
+    nota: texto === '' ? null : texto,
+    ventaId,
+    creadoEn: hoy,
+  };
+}
+
+// RF-31, RF-32, RF-34: se calcula en cada lectura, nunca se guarda.
+// Agotado: stock 0. Bajo: mínimo mayor a 0 y stock igual o menor a él.
+// Un producto desactivado no genera alertas.
+export function estadoStock({ stock, stockMinimo, activo }) {
+  if (!activo) return 'sin_alerta';
+  const actual = Number(stock);
+  const minimo = Number(stockMinimo);
+  if (actual === 0) return 'agotado';
+  if (minimo > 0 && actual <= minimo) return 'bajo';
+  return 'normal';
+}
+
+// RF-33, RF-34: cuenta alertas de productos activos (filas con stock, stock_minimo y activo).
+export function resumirAlertas(productos) {
+  const resumen = { stockBajo: 0, agotados: 0 };
+  for (const producto of productos) {
+    const estado = estadoStock({
+      stock: producto.stock,
+      stockMinimo: producto.stock_minimo,
+      activo: producto.activo,
+    });
+    if (estado === 'bajo') resumen.stockBajo += 1;
+    if (estado === 'agotado') resumen.agotados += 1;
+  }
+  return resumen;
+}
+
+// RF-17: activos primero y luego por nombre (orden alfabético chileno). No muta la entrada.
+export function ordenarProductos(productos) {
+  return [...productos].sort((a, b) => {
+    const diferenciaActivo = Number(Boolean(b.activo)) - Number(Boolean(a.activo));
+    if (diferenciaActivo !== 0) return diferenciaActivo;
+    return String(a.nombre).localeCompare(String(b.nombre), 'es-CL');
+  });
+}

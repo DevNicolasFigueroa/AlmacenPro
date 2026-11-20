@@ -2,17 +2,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  armarMovimiento,
+  calcularAjuste,
   cantidadValidaParaUnidad,
   esCodigoBarrasValido,
   esCostoValido,
   esNombreValido,
   esPrecioVentaValido,
   esUnidadValida,
+  estadoStock,
   hayVentaConPerdida,
   normalizarCodigoBarras,
   normalizarNombre,
+  ordenarProductos,
   puedeCambiarUnidad,
   redondearCantidad,
+  resumirAlertas,
   validarDatosProducto,
 } from './inventario.js';
 
@@ -173,4 +178,122 @@ test('en edición el stock del cuerpo se ignora y no hay stock inicial (RF-10)',
 test('sin cuerpo se rechaza con un error y no lanza excepción (RF-9)', () => {
   assert.ok(validarDatosProducto(undefined).error);
   assert.ok(validarDatosProducto(null, 'edicion').error);
+});
+
+// ---------------------------------------------------------------------------
+// Ajuste de stock, historial y estado de stock (T2)
+// ---------------------------------------------------------------------------
+
+test('la merma resta, la reposición suma y la corrección fija el stock (RF-23)', () => {
+  const base = { stockActual: 10, unidad: 'unidad' };
+  assert.deepEqual(calcularAjuste({ ...base, tipo: 'merma', cantidad: 3 }),
+    { ok: true, stockNuevo: 7, diferencia: -3 });
+  assert.deepEqual(calcularAjuste({ ...base, tipo: 'reposicion', cantidad: 5 }),
+    { ok: true, stockNuevo: 15, diferencia: 5 });
+  assert.deepEqual(calcularAjuste({ ...base, tipo: 'correccion', cantidad: 4 }),
+    { ok: true, stockNuevo: 4, diferencia: -6 });
+});
+
+test('cantidad 0 o negativa se rechaza, salvo la corrección a 0 (RF-24)', () => {
+  const base = { stockActual: 10, unidad: 'unidad' };
+  assert.equal(calcularAjuste({ ...base, tipo: 'merma', cantidad: 0 }).codigo, 'CANTIDAD_INVALIDA');
+  assert.equal(calcularAjuste({ ...base, tipo: 'reposicion', cantidad: 0 }).codigo, 'CANTIDAD_INVALIDA');
+  assert.equal(calcularAjuste({ ...base, tipo: 'merma', cantidad: -2 }).codigo, 'CANTIDAD_INVALIDA');
+  assert.equal(calcularAjuste({ ...base, tipo: 'merma', cantidad: 'abc' }).codigo, 'CANTIDAD_INVALIDA');
+  assert.deepEqual(calcularAjuste({ ...base, tipo: 'correccion', cantidad: 0 }),
+    { ok: true, stockNuevo: 0, diferencia: -10 });
+});
+
+test('la merma mayor al stock se rechaza e informa el stock actual (RF-25)', () => {
+  const resultado = calcularAjuste({ tipo: 'merma', cantidad: 11, stockActual: 10, unidad: 'unidad' });
+  assert.equal(resultado.ok, false);
+  assert.equal(resultado.codigo, 'STOCK_INSUFICIENTE');
+  assert.equal(resultado.stockActual, 10);
+  assert.match(resultado.mensaje, /10/);
+  // Mermar exactamente el stock es válido y deja 0.
+  assert.equal(calcularAjuste({ tipo: 'merma', cantidad: 10, stockActual: 10, unidad: 'unidad' }).stockNuevo, 0);
+});
+
+test('un motivo desconocido se rechaza (RF-22)', () => {
+  const resultado = calcularAjuste({ tipo: 'regalo', cantidad: 1, stockActual: 5, unidad: 'unidad' });
+  assert.equal(resultado.codigo, 'MOTIVO_INVALIDO');
+});
+
+test('por unidad se rechazan decimales y por kilo pasan hasta 3 (RF-7, RF-24)', () => {
+  assert.equal(calcularAjuste({ tipo: 'reposicion', cantidad: 2.5, stockActual: 1, unidad: 'unidad' }).ok, false);
+  const kilos = calcularAjuste({ tipo: 'reposicion', cantidad: 2.5, stockActual: 1.25, unidad: 'kilo' });
+  assert.deepEqual(kilos, { ok: true, stockNuevo: 3.75, diferencia: 2.5 });
+  // Sin error de coma flotante al sumar kilos.
+  assert.equal(calcularAjuste({ tipo: 'reposicion', cantidad: 0.2, stockActual: 0.1, unidad: 'kilo' }).stockNuevo, 0.3);
+});
+
+test('una corrección igual al stock deja diferencia 0 (RF-23)', () => {
+  assert.deepEqual(calcularAjuste({ tipo: 'correccion', cantidad: 10, stockActual: 10, unidad: 'unidad' }),
+    { ok: true, stockNuevo: 10, diferencia: 0 });
+});
+
+test('el movimiento lleva diferencia con signo, antes y después, nota recortada y fecha (RF-8, RF-26)', () => {
+  const hoy = new Date('2026-11-20T15:30:00.000Z');
+  const movimiento = armarMovimiento({
+    productoId: 7, usuarioId: 2, tipo: 'merma', stockAntes: 10, stockDespues: 7, nota: '  se cayó la caja  ', hoy,
+  });
+  assert.deepEqual(movimiento, {
+    productoId: 7,
+    usuarioId: 2,
+    tipo: 'merma',
+    cantidad: -3,
+    stockAntes: 10,
+    stockDespues: 7,
+    nota: 'se cayó la caja',
+    ventaId: null,
+    creadoEn: hoy,
+  });
+  const sinNota = armarMovimiento({ productoId: 7, usuarioId: 2, tipo: 'reposicion', stockAntes: 0, stockDespues: 5, nota: '   ', hoy });
+  assert.equal(sinNota.nota, null);
+  assert.equal(sinNota.cantidad, 5);
+  const larga = armarMovimiento({ productoId: 7, usuarioId: 2, tipo: 'correccion', stockAntes: 1, stockDespues: 1, nota: 'x'.repeat(300), hoy });
+  assert.equal(larga.nota.length, 255);
+  assert.equal(larga.cantidad, 0);
+});
+
+test('el estado de stock distingue agotado, bajo, normal y sin alerta (RF-31, RF-34)', () => {
+  assert.equal(estadoStock({ stock: 0, stockMinimo: 5, activo: 1 }), 'agotado');
+  // Agotado aunque el mínimo sea 0.
+  assert.equal(estadoStock({ stock: 0, stockMinimo: 0, activo: 1 }), 'agotado');
+  assert.equal(estadoStock({ stock: 3, stockMinimo: 5, activo: 1 }), 'bajo');
+  assert.equal(estadoStock({ stock: 5, stockMinimo: 5, activo: 1 }), 'bajo');
+  assert.equal(estadoStock({ stock: 6, stockMinimo: 5, activo: 1 }), 'normal');
+  // Un mínimo 0 no genera "bajo".
+  assert.equal(estadoStock({ stock: 2, stockMinimo: 0, activo: 1 }), 'normal');
+  // Desactivado: sin alerta, incluso agotado.
+  assert.equal(estadoStock({ stock: 0, stockMinimo: 5, activo: 0 }), 'sin_alerta');
+  assert.equal(estadoStock({ stock: 1, stockMinimo: 5, activo: false }), 'sin_alerta');
+});
+
+test('el resumen cuenta solo productos activos (RF-33, RF-34)', () => {
+  const productos = [
+    { stock: 0, stock_minimo: 3, activo: 1 },
+    { stock: 2, stock_minimo: 3, activo: 1 },
+    { stock: 3, stock_minimo: 3, activo: 1 },
+    { stock: 9, stock_minimo: 3, activo: 1 },
+    { stock: 5, stock_minimo: 0, activo: 1 },
+    { stock: 0, stock_minimo: 3, activo: 0 },
+    { stock: 1, stock_minimo: 3, activo: 0 },
+  ];
+  assert.deepEqual(resumirAlertas(productos), { stockBajo: 2, agotados: 1 });
+  assert.deepEqual(resumirAlertas([]), { stockBajo: 0, agotados: 0 });
+});
+
+test('los activos van primero y luego por nombre, sin mutar la lista (RF-17)', () => {
+  const entrada = [
+    { nombre: 'Zanahoria', activo: 1 },
+    { nombre: 'Arroz', activo: 0 },
+    { nombre: 'Ñoquis', activo: 1 },
+    { nombre: 'Azúcar', activo: 1 },
+    { nombre: 'Bebida', activo: 0 },
+  ];
+  const copia = [...entrada];
+  const salida = ordenarProductos(entrada);
+  assert.deepEqual(salida.map((p) => p.nombre), ['Azúcar', 'Ñoquis', 'Zanahoria', 'Arroz', 'Bebida']);
+  assert.deepEqual(entrada, copia);
 });
