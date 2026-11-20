@@ -16,18 +16,18 @@ async function obtenerVentaEnCurso(idVenta, usuario) {
 }
 
 export async function enCurso(req, res) {
-  const ahora = new Date();
+  const hoy = new Date();
   const venta = await ventasModelo.buscarEnCursoPorUsuario(req.usuario.id);
 
   if (!venta) {
     return res.json({ ventaActiva: null, aviso: false, segundosParaCancelar: 0 });
   }
 
-  const estado = estadoInactividadVenta(venta.ultima_actividad, ahora);
+  const estado = estadoInactividadVenta(venta.ultima_actividad, hoy);
   res.json({
     ventaActiva: venta,
     aviso: estado === 'advertir',
-    segundosParaCancelar: segundosParaCancelar(venta.ultima_actividad, ahora),
+    segundosParaCancelar: segundosParaCancelar(venta.ultima_actividad, hoy),
   });
 }
 
@@ -73,7 +73,8 @@ export async function finalizarVenta(req, res) {
 export async function cancelarVenta(req, res) {
   await obtenerVentaEnCurso(req.params.id, req.usuario);
 
-  if (!(await ventasModelo.cancelar(Number(req.params.id)))) {
+  const resultado = await ventasModelo.cancelar(Number(req.params.id));
+  if (resultado.noEncontrada) {
     throw new ErrorApi(409, 'La venta ya no está activa');
   }
   res.json({ mensaje: 'Venta cancelada. Ya puedes cerrar tu sesión' });

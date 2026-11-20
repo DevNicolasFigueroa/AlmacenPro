@@ -31,7 +31,7 @@ export async function listarEnCurso() {
 
 // RF-23: como máximo una venta en curso por usuario. El bloqueo de la fila del
 // usuario dentro de la transacción evita dos inicios simultáneos desde dos pestañas.
-export async function iniciar(usuarioId, ahora) {
+export async function iniciar(usuarioId, hoy) {
   const conexion = await pool.getConnection();
   try {
     await conexion.beginTransaction();
@@ -58,7 +58,7 @@ export async function iniciar(usuarioId, ahora) {
       `INSERT INTO ventas
          (usuario_id, fecha, total, metodo_pago, estado, iniciada_en, ultima_actividad)
        VALUES (?, ?, 0, 'efectivo', 'en_curso', ?, ?)`,
-      [usuarioId, ahora, ahora]
+      [usuarioId, hoy, hoy]
     );
 
     await conexion.commit();
@@ -72,12 +72,12 @@ export async function iniciar(usuarioId, ahora) {
 }
 
 // La pertenencia de la venta se valida en el controlador según el rol.
-export async function registrarActividad(ventaId, ahora) {
+export async function registrarActividad(ventaId, hoy) {
   const [resultado] = await pool.query(
     `UPDATE ventas
      SET ultima_actividad = ?
      WHERE id = ? AND estado = 'en_curso'`,
-    [ahora, ventaId]
+    [hoy, ventaId]
   );
   return resultado.affectedRows === 1;
 }
@@ -117,18 +117,44 @@ export async function finalizar(ventaId) {
   }
 }
 
-// Cancelación manual: la venta queda como anulada y el cajero puede cerrar sesión.
+// Cancelación manual: la venta queda anulada y, si la cuenta está desactivada,
+// pierde el acceso en la misma transacción (RF-38, RNF-8).
 export async function cancelar(ventaId) {
-  const [resultado] = await pool.query(
-    `UPDATE ventas SET estado = 'anulada'
-     WHERE id = ? AND estado = 'en_curso'`,
-    [ventaId]
-  );
-  return resultado.affectedRows === 1;
+  const conexion = await pool.getConnection();
+  try {
+    await conexion.beginTransaction();
+
+    const [ventas] = await conexion.query(
+      `SELECT id, usuario_id FROM ventas WHERE id = ? AND estado = 'en_curso' FOR UPDATE`,
+      [ventaId]
+    );
+    if (ventas.length === 0) {
+      await conexion.rollback();
+      return { noEncontrada: true };
+    }
+
+    await conexion.query(
+      `UPDATE ventas SET estado = 'anulada' WHERE id = ?`,
+      [ventaId]
+    );
+    await conexion.query(
+      `UPDATE usuarios SET token_version = token_version + 1
+       WHERE id = ? AND activo = 0`,
+      [ventas[0].usuario_id]
+    );
+
+    await conexion.commit();
+    return { ok: true };
+  } catch (error) {
+    await conexion.rollback();
+    throw error;
+  } finally {
+    conexion.release();
+  }
 }
 
 // RF-25: cancelación automática y cierre de sesión en la MISMA transacción.
-export async function cancelarAutomaticamente(venta, ahora) {
+export async function cancelarAutomaticamente(venta, hoy) {
   const conexion = await pool.getConnection();
   try {
     await conexion.beginTransaction();
@@ -137,7 +163,7 @@ export async function cancelarAutomaticamente(venta, ahora) {
       `UPDATE ventas
        SET estado = 'cancelada_automaticamente', cancelada_en = ?
        WHERE id = ? AND estado = 'en_curso'`,
-      [ahora, venta.id]
+      [hoy, venta.id]
     );
     if (resultado.affectedRows === 1) {
       await conexion.query(

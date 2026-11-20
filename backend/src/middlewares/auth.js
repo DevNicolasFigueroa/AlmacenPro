@@ -35,7 +35,7 @@ export async function autenticar(req, res, siguiente) {
   }
 
   try {
-    const ahora = new Date();
+    const hoy = new Date();
     const usuario = await usuariosModelo.buscarPorId(datosToken.id);
     if (!usuario) {
       return res.status(401).json({ mensaje: 'Tu cuenta ya no existe, inicia sesión nuevamente' });
@@ -44,8 +44,8 @@ export async function autenticar(req, res, siguiente) {
     // Verificación perezosa: si esta venta ya superó los 15 minutos, se cancela ahora
     // aunque el barrido periódico no haya alcanzado a ejecutarse.
     let ventaActiva = await ventasModelo.buscarEnCursoPorUsuario(usuario.id);
-    if (ventaActiva && estadoInactividadVenta(ventaActiva.ultima_actividad, ahora) === 'cancelar') {
-      await ventasModelo.cancelarAutomaticamente(ventaActiva, ahora);
+    if (ventaActiva && estadoInactividadVenta(ventaActiva.ultima_actividad, hoy) === 'cancelar') {
+      await ventasModelo.cancelarAutomaticamente(ventaActiva, hoy);
       ventaActiva = null;
     }
 
@@ -56,7 +56,7 @@ export async function autenticar(req, res, siguiente) {
     }
 
     if (datosToken.exp
-        && sesionAceptable(new Date(datosToken.exp * 1000), ahora, Boolean(ventaActiva)) === 'expirada') {
+        && sesionAceptable(new Date(datosToken.exp * 1000), hoy, Boolean(ventaActiva)) === 'expirada') {
       return res.status(401).json({ mensaje: 'Tu sesión de 8 horas expiró, inicia sesión nuevamente' });
     }
 

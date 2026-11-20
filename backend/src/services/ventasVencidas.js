@@ -8,7 +8,7 @@ const INTERVALO_BARRIDO_MS = 30_000;
 let temporizador = null;
 let enEjecucion = false;
 
-export async function barrerVentasVencidas(ahora = new Date()) {
+export async function barrerVentasVencidas(hoy = new Date()) {
   if (enEjecucion) return 0;
   enEjecucion = true;
 
@@ -17,8 +17,8 @@ export async function barrerVentasVencidas(ahora = new Date()) {
     let canceladas = 0;
 
     for (const venta of ventas) {
-      if (estadoInactividadVenta(venta.ultima_actividad, ahora) === 'cancelar') {
-        if (await ventasModelo.cancelarAutomaticamente(venta, ahora)) {
+      if (estadoInactividadVenta(venta.ultima_actividad, hoy) === 'cancelar') {
+        if (await ventasModelo.cancelarAutomaticamente(venta, hoy)) {
           canceladas += 1;
         }
       }
