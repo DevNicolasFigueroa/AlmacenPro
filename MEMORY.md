@@ -15,8 +15,16 @@ y `AGENTS.md` antes de empezar cualquier tarea.
   aviso a los 10 min y cancelación automática a los 15 min de ventas abandonadas,
   gracia de JWT vencido mientras exista venta en curso e historial de canceladas.
   13 pruebas unitarias pasan; `tsc --noEmit` y `vite build` sin errores.
-- Constitución en `docs/constitution.md` (6 principios innegociables). No hay cliente MySQL
-  en este entorno: `npm run test:integracion` existe pero falta ejecutarlo con MySQL real.
+- Productos e inventario completo según `specs/002-productos-e-inventario/` (rama
+  `002-productos-e-inventario`): alta, edición y desactivación (sin borrado), stock en unidades o
+  kilos con 3 decimales, ajuste manual con motivo (merma, reposición, corrección) en una transacción
+  con `FOR UPDATE`, historial en `movimientos_stock` (solo inserción), estado agotado / stock bajo
+  calculado en cada lectura, resumen de alertas en `/ventas` y vista del cajero sin costos.
+  Migración 003 aplicada en `almacenpro`. 40 pruebas unitarias y 37 de integración (26 de esta
+  spec) pasan contra MySQL real; checklist manual en navegador completado; con 5.000 productos
+  el peor listado tardó 123 ms (límite 2 s).
+- Constitución en `docs/constitution.md` (6 principios innegociables). `npm run test:integracion`
+  ya se ejecutó con MySQL real (cliente en `C:\Program Files\MySQL\MySQL Server 26.10\bin`).
 - Pendiente de implementar: registro transaccional de `ventas`, `clientes/fiado` y `reportes`
   (sus controladores siguen con 501). El ciclo de venta sí opera:
   `/ventas/iniciar`, `/ventas/:id/actividad`, `/ventas/:id/finalizar`, `/ventas/:id/cancelar`.
@@ -43,11 +51,14 @@ y `AGENTS.md` antes de empezar cualquier tarea.
 
 ## 4. Próximos pasos inmediatos
 
-- [ ] Ejecutar `npm run test:integracion` contra MySQL real (migración 002, semilla, login y flujos de sesión).
-- [ ] Escribir la especificación del módulo de ventas (principio 2 de la constitución).
+- [x] Ejecutar `npm run test:integracion` contra MySQL real (migración 002, semilla, login y flujos de sesión).
+- [ ] Escribir la especificación del módulo de ventas (principio 2 de la constitución). Debe usar
+      `movimientosStock.insertar` (tipos `venta` y `anulacion_venta`), bloquear la fila del producto con
+      `FOR UPDATE` y la consulta `listarVendibles` (solo activos). Con ella se verifican los criterios
+      de la spec 002 que dependen del punto de venta (retirar de la venta, vender y ajustar a la vez).
 - [ ] Implementar `ventas.controller.js` + `ventas.model.js` con transacción SQL:
       validar stock (FOR UPDATE) → descontar → insertar venta y detalles → cargo fiado
       si `metodo_pago = 'fiado'`. Rollback ante cualquier fallo.
 - [ ] Actualizar esta memoria al terminar cada sesión.
-- [ ] Implementar ajuste manual de stock con motivo (merma, reposición, corrección); registrar el movimiento en la base de datos para auditoría.
-- [ ] Implementar alerta de stock bajo (mínimo configurable por producto) y mostrarla en el listado de productos y en el reporte del día.
+- [x] Implementar ajuste manual de stock con motivo (merma, reposición, corrección); registrar el movimiento en la base de datos para auditoría.
+- [x] Implementar alerta de stock bajo (mínimo configurable por producto) y mostrarla en el listado de productos. Falta mostrarla en el reporte del día (módulo de reportes).

@@ -56,7 +56,13 @@ Si la base de datos ya existía antes de la spec 001, aplicar una sola vez las m
 ```bash
 mysql -u root -p almacenpro < database/migration_001_autenticacion.sql
 mysql -u root -p almacenpro < database/migration_002_spec001.sql
+mysql -u root -p almacenpro < database/migration_003_spec002.sql
 ```
+
+La migración 003 (productos e inventario) convierte el stock a decimales para vender por kilo, limita la
+unidad a `unidad` o `kilo`, impide el stock negativo y crea `movimientos_stock`. Se detiene sin cambiar
+nada si hay productos con stock negativo. Haz un respaldo antes de ejecutarla. En PowerShell, que no admite
+el operador `<`, usa: `Get-Content database/migration_003_spec002.sql -Raw -Encoding utf8 | mysql -u root -p almacenpro`.
 
 ### 2. Backend
 
@@ -65,8 +71,8 @@ cd backend
 cp .env.example .env          # editar credenciales de MySQL y JWT_SECRET
 npm install
 node database/seed.js         # crea el administrador y muestra su código de recuperación
-npm test                      # reglas de negocio de la spec 001 (sin base de datos)
-npm run test:integracion      # endpoints contra MySQL (crea y usa almacenpro_test)
+npm test                      # reglas de negocio de las specs 001 y 002 (sin base de datos)
+npm run test:integracion      # endpoints contra MySQL (crea y borra almacenpro_test y almacenpro_test_inventario)
 npm run dev                   # API en http://localhost:4000
 ```
 
@@ -82,6 +88,19 @@ npm run dev                   # API en http://localhost:4000
 | PATCH | `/api/auth/usuarios/:id/estado` | administrador | Activar o desactivar solo cajeros |
 | PATCH | `/api/auth/usuarios/:id/contrasena` | administrador | Contraseña temporal para cajeros |
 | POST | `/api/ventas/iniciar` y `/finalizar` | sesión | Marca la venta en curso para no interrumpir la sesión |
+
+### Productos e inventario (spec 002)
+
+| Método | Ruta | Acceso | Descripción |
+| ------ | ---- | ------ | ----------- |
+| GET | `/api/productos` | sesión | Listado con `buscar`, `categoria` y `estadoStock` (`bajo` o `agotado`); incluye desactivados; el costo solo lo recibe el administrador |
+| GET | `/api/productos/resumen-stock` | sesión | Cantidad de productos activos con stock bajo y agotados |
+| GET | `/api/productos/categorias` | sesión | Categorías existentes |
+| POST | `/api/productos` | administrador | Crear producto (con stock inicial opcional) |
+| PUT | `/api/productos/:id` | administrador | Editar datos; el stock no se edita aquí |
+| PATCH | `/api/productos/:id/estado` | administrador | Desactivar o reactivar (no existe borrado) |
+| POST | `/api/productos/:id/ajustes` | administrador | Ajuste manual de stock: merma, reposición o corrección |
+| GET | `/api/productos/:id/movimientos` | administrador | Historial de movimientos de stock |
 
 ### 3. Frontend
 

@@ -537,6 +537,10 @@ body {
   overflow-y: auto;
 }
 
+.sobre--ancho .acciones {
+  margin-top: 16px;
+}
+
 .formulario-columnas {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

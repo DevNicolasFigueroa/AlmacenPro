@@ -3,11 +3,14 @@ import type { UnidadMedida } from '../types';
 
 // Montos en pesos chilenos, sin decimales: $1.490
 export function formatearClp(valor: string | number | undefined) {
-  return Number(valor ?? 0).toLocaleString('es-CL', {
+  const numero = Number(valor ?? 0);
+  const texto = Math.abs(numero).toLocaleString('es-CL', {
     style: 'currency',
     currency: 'CLP',
     maximumFractionDigits: 0,
   });
+  // El signo va antes del símbolo: -$300 (y no $-300), por ejemplo en un margen negativo.
+  return numero < 0 ? `-${texto}` : texto;
 }
 
 // Acepta lo que escribe la persona ("1490", "1.490", "$1.490") y devuelve el entero en pesos.
