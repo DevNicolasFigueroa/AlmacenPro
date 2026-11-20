@@ -24,6 +24,7 @@ export interface Cuenta {
   intentos_fallidos: number;
   requiere_cambio_contrasena: number;
   creado_en: string;
+  actualizado_en?: string;
 }
 
 export interface CuentaNueva {

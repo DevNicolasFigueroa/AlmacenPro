@@ -27,7 +27,7 @@ Las tareas completadas y subidas quedan marcadas con `[x]`.
 - [x] **T7. Construir la base del frontend de sesión, permisos y navegación (≈30 min).** RF-10, RF-12, RF-14, RF-15, RF-16, RF-17, RF-34, RF-36.
   Hecho cuando: el cajero solo ve Ventas e Inventario; una URL directa a `/usuarios` muestra `SinPermisos` sin redirigir; un 401 limpia la sesión y vuelve a login con aviso; el cierre en una pestaña limpia las demás; la barra muestra nombre y rol.
 
-- [ ] **T8. Completar la vista de gestión de cuentas (≈30 min).** RF-18, RF-19, RF-20, RF-21, RF-23, RF-24, RF-25, RF-26, RF-27.
+- [x] **T8. Completar la vista de gestión de cuentas (≈30 min).** RF-18, RF-19, RF-20, RF-21, RF-23, RF-24, RF-25, RF-26, RF-27.
   Hecho cuando: el administrador crea cuentas, ve cada secreto una sola vez, activa o desactiva, restablece contraseñas y ve deshabilitadas las acciones que dejarían sin administrador; no existe botón de eliminar, cambiar rol ni regenerar código.
 
 - [ ] **T9. Ajustar las vistas de ingreso, cambio y recuperación de contraseña (≈25 min).** RF-1, RF-2, RF-3, RF-22, RF-28, RF-29, RF-31.

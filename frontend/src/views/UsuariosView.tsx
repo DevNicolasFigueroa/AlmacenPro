@@ -1,4 +1,4 @@
-// Gestión de cuentas: solo administradores (spec 001, RF-12 a RF-17).
+// Gestión de cuentas: solo administradores (spec 001, RF-18 a RF-27).
 import { useEffect, useState, type FormEvent } from 'react';
 import { api, mensajeError } from '../services/api';
 import type { Cuenta, CuentaNueva, RespuestaContrasena, RespuestaCuenta } from '../types';
@@ -6,6 +6,12 @@ import type { Cuenta, CuentaNueva, RespuestaContrasena, RespuestaCuenta } from '
 const formularioInicial: CuentaNueva = {
   nombre: '', usuario: '', password: '', rol: 'cajero',
 };
+
+function formatearFecha(valor: string | undefined) {
+  if (!valor) return '';
+  const fecha = new Date(String(valor).replace(' ', 'T') + 'Z');
+  return Number.isNaN(fecha.getTime()) ? valor : fecha.toLocaleString('es-CL');
+}
 
 export function VistaUsuarios() {
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);
@@ -24,6 +30,15 @@ export function VistaUsuarios() {
   }
 
   useEffect(() => { cargar(); }, []);
+
+  const adminsActivos = cuentas.filter(
+    (cuenta) => cuenta.rol === 'administrador' && cuenta.activo
+  ).length;
+
+  // RF-26 y RF-27: las acciones que dejarían el negocio sin administrador se deshabilitan.
+  function esUltimoAdministrador(cuenta: Cuenta) {
+    return cuenta.rol === 'administrador' && cuenta.activo === 1 && adminsActivos <= 1;
+  }
 
   async function crear(e: FormEvent) {
     e.preventDefault();
@@ -107,26 +122,46 @@ export function VistaUsuarios() {
       </form>
 
       <h3>Cuentas existentes</h3>
-      <ul>
-        {cuentas.map((cuenta) => (
-          <li key={cuenta.id}>
-            {cuenta.nombre} ({cuenta.usuario}) — {cuenta.rol}
-            {cuenta.rol === 'administrador' ? (
-              <span> — Cuenta permanente</span>
-            ) : (
-              <>
-                {cuenta.activo ? ' — Activa' : ' — Desactivada'}
-                <button onClick={() => cambiarEstado(cuenta)}>
-                  {cuenta.activo ? 'Desactivar' : 'Activar'}
-                </button>
-                <button onClick={() => restablecer(cuenta)}>Restablecer contraseña</button>
-              </>
-            )}
-          </li>
-        ))}
-      </ul>
+      <table>
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Usuario</th>
+            <th>Rol</th>
+            <th>Estado</th>
+            <th>Última actualización</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {cuentas.map((cuenta) => {
+            const bloqueada = esUltimoAdministrador(cuenta);
+            const avisoBloqueo = 'Debe quedar al menos un Administrador activo';
+            return (
+              <tr key={cuenta.id}>
+                <td>{cuenta.nombre}</td>
+                <td>{cuenta.usuario}</td>
+                <td>{cuenta.rol === 'administrador' ? 'Administrador' : 'Cajero'}</td>
+                <td>{cuenta.activo ? 'Activa' : 'Desactivada'}</td>
+                <td>{formatearFecha(cuenta.actualizado_en)}</td>
+                <td>
+                  <button onClick={() => cambiarEstado(cuenta)} disabled={bloqueada}
+                    title={bloqueada ? avisoBloqueo : undefined}>
+                    {cuenta.activo ? 'Desactivar' : 'Activar'}
+                  </button>
+                  <button onClick={() => restablecer(cuenta)} disabled={bloqueada}
+                    title={bloqueada ? avisoBloqueo : undefined}>
+                    Restablecer contraseña
+                  </button>
+                  {bloqueada && <span>Es el único Administrador activo.</span>}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
 
-      {/* RF-18 y RF-19: el secreto se muestra una sola vez y bloquea la pantalla
+      {/* RNF-2: el secreto se muestra una sola vez y bloquea la pantalla
           hasta que el administrador confirma que lo guardó. */}
       {secreto && (
         <div role="dialog" aria-modal="true" className="modal-secreto">
