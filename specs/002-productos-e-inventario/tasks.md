@@ -13,7 +13,7 @@ Las pruebas de integración y todo lo que toque MySQL requieren una instancia re
 - [x] **T2. Escribir las funciones puras de ajuste, estado de stock y orden, con sus pruebas unitarias (≈30 min).** RF-8, RF-17, RF-22, RF-23, RF-24, RF-25, RF-26, RF-31, RF-32, RF-33, RF-34.
   Hecho cuando: `npm test` pasa y cubre merma, reposición y corrección; cantidad 0 o negativa rechazada y corrección a 0 válida; merma mayor al stock rechazada con el stock actual; corrección igual al stock con diferencia 0; `armarMovimiento` con diferencia con signo, stock antes y después y `creadoEn = hoy`; `estadoStock` (agotado con stock 0, bajo solo con mínimo > 0 y stock ≤ mínimo, desactivado sin alerta); `resumirAlertas` solo con activos; activos primero y orden por nombre.
 
-- [ ] **T3. Crear la migración 003 y actualizar `schema.sql` (≈25 min).** RF-7, RF-8, RF-26, RF-29, RNF-1, RNF-7.
+- [x] **T3. Crear la migración 003 y actualizar `schema.sql` (≈25 min).** RF-7, RF-8, RF-26, RF-29, RNF-1, RNF-7.
   Hecho cuando: ambos archivos definen `stock` y `stock_minimo` como `DECIMAL(10,3)`, `unidad_medida` como `ENUM('unidad','kilo')`, `CHECK (stock >= 0)` y la tabla `movimientos_stock` con su índice; la migración normaliza unidades previas, copia el stock existente como "stock inicial" y avisa antes si hay stock negativo; ambos son coherentes entre sí y con el plan (revisión de diff). *No verificada contra MySQL real.*
 
 - [ ] **T4. Implementar el modelo de movimientos y las consultas de lectura de productos (≈30 min).** RF-16, RF-17, RF-18, RF-19, RF-20, RF-28, RF-29, RF-33, RNF-6.

@@ -52,13 +52,14 @@ CREATE TABLE productos (
   categoria_id  INT UNSIGNED NULL,
   precio_costo  DECIMAL(11,2) NOT NULL DEFAULT 0,
   precio_venta  DECIMAL(11,2) NOT NULL DEFAULT 0,
-  stock         INT           NOT NULL DEFAULT 0,
-  stock_minimo  INT           NOT NULL DEFAULT 0,     -- umbral para alertas de reposición
-  unidad_medida VARCHAR(20)   NOT NULL DEFAULT 'unidad',
+  stock         DECIMAL(10,3) NOT NULL DEFAULT 0,     -- kilos con hasta 3 decimales
+  stock_minimo  DECIMAL(10,3) NOT NULL DEFAULT 0,     -- umbral para alertas de reposición (0 = sin alerta)
+  unidad_medida ENUM('unidad', 'kilo') NOT NULL DEFAULT 'unidad',
   activo        TINYINT(1)    NOT NULL DEFAULT 1,
   creado_en     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   actualizado_en TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
                 ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT chk_productos_stock_no_negativo CHECK (stock >= 0),  -- principio 5 de la constitución
   CONSTRAINT fk_productos_categoria
     FOREIGN KEY (categoria_id) REFERENCES categorias (id)
     ON DELETE SET NULL
@@ -124,6 +125,32 @@ CREATE TABLE detalle_ventas (
   CONSTRAINT fk_detalle_producto
     FOREIGN KEY (producto_id) REFERENCES productos (id)
 ) ENGINE = InnoDB;
+
+-- ------------------------------------------------------------
+-- Historial de movimientos de stock (solo se inserta, nunca se modifica)
+-- ------------------------------------------------------------
+CREATE TABLE movimientos_stock (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  producto_id  INT UNSIGNED  NOT NULL,
+  usuario_id   INT UNSIGNED  NOT NULL,                -- cuenta que hizo el movimiento
+  tipo         ENUM('stock_inicial', 'merma', 'reposicion', 'correccion', 'venta', 'anulacion_venta')
+                 NOT NULL,                            -- venta y anulacion_venta los usa la spec de ventas
+  cantidad     DECIMAL(10,3) NOT NULL,                -- diferencia con signo: positiva suma, negativa resta
+  stock_antes  DECIMAL(10,3) NOT NULL,
+  stock_despues DECIMAL(10,3) NOT NULL,
+  nota         VARCHAR(255)  NULL,
+  venta_id     INT UNSIGNED  NULL,                    -- solo en venta y anulacion_venta
+  creado_en    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_movimientos_producto
+    FOREIGN KEY (producto_id) REFERENCES productos (id),
+  CONSTRAINT fk_movimientos_usuario
+    FOREIGN KEY (usuario_id) REFERENCES usuarios (id),
+  CONSTRAINT fk_movimientos_venta
+    FOREIGN KEY (venta_id) REFERENCES ventas (id)
+    ON DELETE SET NULL
+) ENGINE = InnoDB;
+
+CREATE INDEX idx_movimientos_producto_fecha ON movimientos_stock (producto_id, creado_en);
 
 -- ------------------------------------------------------------
 -- Transacciones de fiado: cargos (ventas al fiado) y abonos (pagos)
