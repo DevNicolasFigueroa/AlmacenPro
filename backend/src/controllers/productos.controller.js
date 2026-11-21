@@ -63,6 +63,18 @@ export async function listar(req, res) {
 }
 
 // RF-33, RF-34: solo cantidades de productos activos, sin costos.
+// Spec 003, RF-2, RF-49: búsqueda del punto de venta. Solo productos activos, por nombre o por
+// código de barras, con precio, unidad y stock, y sin costos (ambos roles reciben lo mismo).
+const LIMITE_VENDIBLES = 30;
+
+export async function vendibles(req, res) {
+  const productos = await productosModelo.listarVendibles({
+    textoBusqueda: String(req.query.buscar ?? '').trim(),
+    limite: LIMITE_VENDIBLES,
+  });
+  res.json(productos.map(conEstadoStock));
+}
+
 export async function resumenStock(_req, res) {
   const productos = await productosModelo.listarParaResumen();
   res.json(resumirAlertas(productos));

@@ -56,7 +56,7 @@ export async function listar({ textoBusqueda = '', categoriaId = null, incluirCo
 }
 
 // Productos que se pueden vender: solo activos y sin costo (RF-13). La usará la spec de ventas.
-export async function listarVendibles({ textoBusqueda = '' } = {}) {
+export async function listarVendibles({ textoBusqueda = '', limite = null } = {}) {
   let sql = `
     SELECT p.id, p.codigo_barras, p.nombre, p.categoria_id, c.nombre AS categoria,
            p.precio_venta, p.stock, p.stock_minimo, p.unidad_medida, p.activo
@@ -71,7 +71,16 @@ export async function listarVendibles({ textoBusqueda = '' } = {}) {
     parametros.codigo = textoBusqueda;
   }
 
-  sql += ' ORDER BY p.nombre';
+  // Un código de barras exacto va primero; luego por nombre. "limite" acota lo que se muestra
+  // mientras se escribe en el punto de venta.
+  sql += textoBusqueda
+    ? ' ORDER BY (p.codigo_barras = :codigoOrden) DESC, p.nombre'
+    : ' ORDER BY p.nombre';
+  if (textoBusqueda) parametros.codigoOrden = textoBusqueda;
+  if (limite) {
+    sql += ' LIMIT :limite';
+    parametros.limite = limite;
+  }
   const [filas] = await pool.query(sql, parametros);
   return filas.map(convertirNumeros);
 }

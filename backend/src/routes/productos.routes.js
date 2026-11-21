@@ -11,6 +11,7 @@ import {
   listarCategorias,
   listarMovimientos,
   resumenStock,
+  vendibles,
 } from '../controllers/productos.controller.js';
 
 const router = Router();
@@ -21,6 +22,7 @@ router.use(autenticar); // todas las rutas requieren sesión
 router.get('/', listar);
 router.get('/resumen-stock', resumenStock);
 router.get('/categorias', listarCategorias);
+router.get('/vendibles', vendibles); // punto de venta (spec 003): activos, sin costos
 
 router.post('/', requiereRol('administrador'), crear);
 router.put('/:id', requiereRol('administrador'), editar);
