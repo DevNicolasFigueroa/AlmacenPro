@@ -92,16 +92,83 @@ export interface RespuestaVentaActiva extends Carrito {
   ultimaVenta: UltimaVenta | null;
 }
 
-export interface VentaCancelada {
+export type EstadoVenta = 'en_curso' | 'completada' | 'anulada' | 'cancelada' | 'cancelada_automaticamente';
+
+// Fila del historial de ventas (spec 003, solo administrador). La fecha es la de cierre.
+export interface VentaHistorial {
   id: number;
   fecha: string;
+  total: number;
+  estado: EstadoVenta;
   iniciada_en: string;
   ultima_actividad: string;
-  cancelada_en: string;
-  total: string;
+  cancelada_en: string | null;
+  metodo_pago: MetodoPago | null; // solo si la venta se confirmó
   usuario_id: number;
   cajero_nombre: string;
   cajero_usuario: string;
+  cliente_id: number | null;
+  cliente_rut: string | null;
+  cliente_nombre: string | null;
+}
+
+// Solo las completadas suman su total; anuladas y canceladas se cuentan aparte.
+export interface ResumenHistorial {
+  completadas: { cantidad: number; total: number };
+  anuladas: { cantidad: number };
+  canceladas: { cantidad: number };
+}
+
+export interface RespuestaHistorial {
+  desde: string;
+  hasta: string;
+  ventas: VentaHistorial[];
+  resumen: ResumenHistorial;
+}
+
+export interface LineaDetalle {
+  producto_id: number;
+  nombre: string;
+  unidad_medida: UnidadMedida;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+}
+
+export interface DetalleVentaCompleto extends VentaHistorial {
+  anulada_en: string | null;
+  motivo_anulacion: string | null;
+  anulada_por_nombre: string | null;
+  cliente_rut_formateado: string | null;
+  lineas: LineaDetalle[];
+}
+
+export interface CompraCliente {
+  id: number;
+  fecha: string;
+  total: number;
+  metodo_pago: MetodoPago;
+  estado: 'completada' | 'anulada';
+  anulada_en: string | null;
+  motivo_anulacion: string | null;
+  cajero_nombre: string;
+}
+
+export interface MovimientoFiado {
+  id: number;
+  tipo: 'cargo' | 'abono' | 'anulacion';
+  monto: number;
+  venta_id: number | null;
+  observacion: string | null;
+  fecha: string;
+  usuario_nombre: string;
+}
+
+// Cuenta completa del cliente: solo la ve el administrador.
+export interface CuentaCliente {
+  cliente: ClienteVenta & { telefono?: string | null; creado_en?: string };
+  compras: CompraCliente[];
+  movimientos: MovimientoFiado[];
 }
 
 export type UnidadMedida = 'unidad' | 'kilo';

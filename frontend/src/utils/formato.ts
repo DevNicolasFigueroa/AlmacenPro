@@ -46,3 +46,23 @@ export function parsearCantidad(texto: string, unidad: UnidadMedida): ResultadoC
   }
   return { valor };
 }
+
+// Fecha y hora como las muestra el almacén: "21-11-2026 15:30". Las fechas llegan como
+// 'AAAA-MM-DD HH:mm:ss' en hora local del servidor.
+export function formatearFechaHora(texto: string | null | undefined) {
+  if (!texto) return '';
+  const fecha = new Date(texto.replace(' ', 'T'));
+  if (Number.isNaN(fecha.getTime())) return texto;
+  return fecha.toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+// 'AAAA-MM-DD' del día local, para los filtros por fecha.
+export function diaLocal(fecha: Date) {
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+  const dia = String(fecha.getDate()).padStart(2, '0');
+  return `${fecha.getFullYear()}-${mes}-${dia}`;
+}
+
+export const NOMBRE_METODO_PAGO = {
+  efectivo: 'Efectivo', debito: 'Débito', credito: 'Crédito', fiado: 'Fiado',
+} as const;
