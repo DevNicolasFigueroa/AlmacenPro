@@ -2,13 +2,21 @@
 // Toda escritura relacionada con la sesión se hace en transacción para no dejar
 // una venta cancelada sin invalidar sus tokens, ni una sesión cerrada con venta abierta.
 import { pool } from '../config/db.js';
-import { redondearCantidad } from '../utils/inventario.js';
+import { armarMovimiento, redondearCantidad } from '../utils/inventario.js';
 import {
+  armarResumenHistorial,
   calcularSubtotal,
   calcularTotal,
   evaluarStockAlAgregar,
+  puedeAnular,
   validarCantidadLinea,
+  validarCobro,
+  verificarCarritoParaConfirmar,
 } from '../utils/ventas.js';
+import * as clientesModelo from './clientes.model.js';
+import * as fiadoModelo from './fiadoTransacciones.model.js';
+import * as movimientosStock from './movimientosStock.model.js';
+import * as productosModelo from './productos.model.js';
 
 function aNumero(valor) {
   return valor === null || valor === undefined ? valor : Number(valor);
@@ -315,6 +323,334 @@ export async function iniciar(usuarioId, hoy) {
   } finally {
     conexion.release();
   }
+}
+
+// ---------------------------------------------------------------------------
+// Confirmar y anular (spec 003, RF-14–19, RF-25–34, RF-42–48)
+// Ambas operaciones toman primero la fila de la venta y luego las de los productos en orden
+// de id (bloquearPorIds): así dos ventas, una anulación y un ajuste manual que comparten
+// productos se ejecutan uno tras otro y nunca se bloquean entre sí.
+// ---------------------------------------------------------------------------
+
+async function leerLineasDeVenta(conexion, ventaId) {
+  const [filas] = await conexion.query(
+    `SELECT producto_id, cantidad, precio_unitario, subtotal
+     FROM detalle_ventas WHERE venta_id = :ventaId ORDER BY producto_id`,
+    { ventaId }
+  );
+  return filas.map((fila) => ({
+    producto_id: fila.producto_id,
+    cantidad: aNumero(fila.cantidad),
+    precio_unitario: aNumero(fila.precio_unitario),
+    subtotal: aNumero(fila.subtotal),
+  }));
+}
+
+async function bloquearVenta(conexion, ventaId) {
+  const [filas] = await conexion.query(
+    `SELECT id, usuario_id, cliente_id, estado, metodo_pago, total
+     FROM ventas WHERE id = :ventaId FOR UPDATE`,
+    { ventaId }
+  );
+  return filas[0] ? { ...filas[0], total: aNumero(filas[0].total) } : null;
+}
+
+const VENTA_NO_ENCONTRADA = {
+  ok: false,
+  codigo: 'VENTA_NO_ENCONTRADA',
+  mensaje: 'No se encontró la venta indicada',
+};
+
+// RF-25: confirma la venta en UNA transacción todo o nada: venta completada, descuento de stock,
+// movimiento de stock por línea y, si es fiado, el cargo al cliente. Cualquier falla deja todo
+// como estaba y el carrito sigue en curso (RF-28). Devuelve:
+//   { ok: true, venta, vuelto, saldo, productos }  o  { ok: false, codigo, mensaje, ... }.
+// "usuarioId" es la cuenta que confirma; "hoy" el momento de la confirmación.
+export async function confirmar({
+  ventaId, usuarioId, metodoPago, clienteId = null, montoRecibido, hoy,
+}) {
+  const conexion = await pool.getConnection();
+  try {
+    await conexion.beginTransaction();
+
+    const venta = await bloquearVenta(conexion, ventaId);
+    if (!venta) {
+      await conexion.rollback();
+      return VENTA_NO_ENCONTRADA;
+    }
+    // RF-30: la segunda confirmación no registra nada y responde con el estado real.
+    if (venta.estado === 'completada') {
+      await conexion.rollback();
+      return {
+        ok: false,
+        codigo: 'VENTA_YA_CONFIRMADA',
+        mensaje: 'Esta venta ya está confirmada',
+        venta: { id: venta.id, total: venta.total, metodo_pago: venta.metodo_pago },
+      };
+    }
+    if (venta.estado !== 'en_curso') {
+      await conexion.rollback();
+      return { ok: false, codigo: 'VENTA_NO_EN_CURSO', mensaje: 'La venta ya no está en curso' };
+    }
+
+    const lineas = await leerLineasDeVenta(conexion, ventaId);
+    const productos = await productosModelo.bloquearPorIds(
+      conexion, lineas.map((linea) => linea.producto_id)
+    );
+
+    // RF-26, RF-27: se rechaza TODA la venta si algún producto no alcanza o fue desactivado.
+    const revision = verificarCarritoParaConfirmar(lineas, productos);
+    if (!revision.ok) {
+      await conexion.rollback();
+      return {
+        ok: false,
+        codigo: revision.codigo,
+        mensaje: revision.problemas[0].mensaje,
+        problemas: revision.problemas,
+      };
+    }
+
+    // El total se recalcula con las líneas guardadas: no se confía en el valor del carrito.
+    const total = calcularTotal(lineas);
+    const idCliente = clienteId === null || clienteId === undefined ? null : Number(clienteId);
+
+    const cobro = validarCobro({ metodoPago, total, montoRecibido, clienteId: idCliente });
+    if (!cobro.ok) {
+      await conexion.rollback();
+      return cobro;
+    }
+
+    let saldo = null;
+    if (idCliente !== null) {
+      if (!(await clientesModelo.buscarPorId(idCliente, conexion))) {
+        await conexion.rollback();
+        return { ok: false, codigo: 'CLIENTE_NO_ENCONTRADO', mensaje: 'No se encontró al cliente indicado' };
+      }
+    }
+
+    const porId = new Map(productos.map((producto) => [producto.id, producto]));
+    const stockActualizado = [];
+    for (const linea of lineas) {
+      const producto = porId.get(linea.producto_id);
+      const stockDespues = redondearCantidad(producto.stock - linea.cantidad);
+
+      await conexion.query(
+        'UPDATE productos SET stock = :stockDespues WHERE id = :productoId',
+        { stockDespues, productoId: producto.id }
+      );
+      await movimientosStock.insertar(conexion, armarMovimiento({
+        productoId: producto.id,
+        usuarioId,
+        tipo: 'venta',
+        stockAntes: producto.stock,
+        stockDespues,
+        nota: null,
+        ventaId,
+        hoy,
+      }));
+      stockActualizado.push({
+        id: producto.id,
+        nombre: producto.nombre,
+        unidad_medida: producto.unidad_medida,
+        stock: stockDespues,
+        stock_minimo: producto.stock_minimo,
+        activo: producto.activo,
+      });
+    }
+
+    await conexion.query(
+      `UPDATE ventas
+       SET estado = 'completada', metodo_pago = :metodoPago, cliente_id = :clienteId,
+           total = :total, fecha = :hoy, ultima_actividad = :hoy
+       WHERE id = :ventaId`,
+      { metodoPago, clienteId: idCliente, total, hoy, ventaId }
+    );
+
+    if (metodoPago === 'fiado') {
+      await fiadoModelo.insertarCargo(conexion, {
+        clienteId: idCliente, ventaId, usuarioId, monto: total, hoy,
+      });
+    }
+    if (idCliente !== null) {
+      saldo = await clientesModelo.obtenerSaldo(idCliente, conexion);
+    }
+
+    // Spec 001, RF-15: una cuenta desactivada pierde el acceso al terminar su venta.
+    await conexion.query(
+      'UPDATE usuarios SET token_version = token_version + 1 WHERE id = :usuarioDeVenta AND activo = 0',
+      { usuarioDeVenta: venta.usuario_id }
+    );
+
+    await conexion.commit();
+    return {
+      ok: true,
+      venta: { id: ventaId, total, metodo_pago: metodoPago, cliente_id: idCliente, fecha: hoy },
+      vuelto: cobro.vuelto,
+      saldo,
+      productos: stockActualizado,
+    };
+  } catch (error) {
+    await conexion.rollback();
+    throw error;
+  } finally {
+    conexion.release();
+  }
+}
+
+// RF-42–48: anula una venta completada en UNA transacción: la venta queda anulada con quién,
+// cuándo y por qué; el stock vuelve con un movimiento "anulacion_venta"; y si fue fiado, la
+// anulación descuenta el cargo del saldo (puede quedar a favor del cliente, RF-44).
+// El motivo llega ya normalizado. Devuelve { ok: true, saldo } o { ok: false, codigo, mensaje }.
+export async function anular({ ventaId, usuarioId, motivo, hoy }) {
+  const conexion = await pool.getConnection();
+  try {
+    await conexion.beginTransaction();
+
+    const venta = await bloquearVenta(conexion, ventaId);
+    if (!venta) {
+      await conexion.rollback();
+      return VENTA_NO_ENCONTRADA;
+    }
+    const decision = puedeAnular(venta);
+    if (!decision.ok) {
+      await conexion.rollback();
+      return decision;
+    }
+
+    const lineas = await leerLineasDeVenta(conexion, ventaId);
+    // Se bloquean también los productos desactivados: el stock se devuelve igual.
+    const productos = await productosModelo.bloquearPorIds(
+      conexion, lineas.map((linea) => linea.producto_id)
+    );
+    const porId = new Map(productos.map((producto) => [producto.id, producto]));
+
+    for (const linea of lineas) {
+      const producto = porId.get(linea.producto_id);
+      const stockDespues = redondearCantidad(producto.stock + linea.cantidad);
+
+      await conexion.query(
+        'UPDATE productos SET stock = :stockDespues WHERE id = :productoId',
+        { stockDespues, productoId: producto.id }
+      );
+      await movimientosStock.insertar(conexion, armarMovimiento({
+        productoId: producto.id,
+        usuarioId,
+        tipo: 'anulacion_venta',
+        stockAntes: producto.stock,
+        stockDespues,
+        nota: motivo,
+        ventaId,
+        hoy,
+      }));
+    }
+
+    let saldo = null;
+    if (venta.metodo_pago === 'fiado' && venta.cliente_id) {
+      await fiadoModelo.insertarAnulacion(conexion, {
+        clienteId: venta.cliente_id, ventaId, usuarioId, monto: venta.total, hoy,
+      });
+      saldo = await clientesModelo.obtenerSaldo(venta.cliente_id, conexion);
+    }
+
+    // "fecha" no cambia: la venta anulada sigue contando en el día en que se vendió.
+    await conexion.query(
+      `UPDATE ventas
+       SET estado = 'anulada', anulada_por = :usuarioId, anulada_en = :hoy,
+           motivo_anulacion = :motivo
+       WHERE id = :ventaId`,
+      { usuarioId, hoy, motivo, ventaId }
+    );
+
+    await conexion.commit();
+    return { ok: true, saldo };
+  } catch (error) {
+    await conexion.rollback();
+    throw error;
+  } finally {
+    conexion.release();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Historial y detalle (spec 003, RF-35–39)
+// ---------------------------------------------------------------------------
+
+// RF-35, RF-36: todas las ventas que ya no están en curso (completadas, anuladas y canceladas)
+// con fecha de cierre en [inicio, fin), de la más reciente a la más antigua. "estados" es una
+// lista opcional para filtrar. El método de pago solo tiene sentido si la venta se confirmó.
+export async function listarHistorial({ inicio, fin, estados = [] }) {
+  let filtroEstado = '';
+  const parametros = { inicio, fin };
+  if (estados.length > 0) {
+    filtroEstado = 'AND v.estado IN (:estados)';
+    parametros.estados = estados;
+  }
+
+  const [filas] = await pool.query(
+    `SELECT v.id, v.fecha, v.total, v.estado,
+            CASE WHEN v.estado IN ('completada', 'anulada') THEN v.metodo_pago END AS metodo_pago,
+            u.id AS usuario_id, u.nombre AS cajero_nombre, u.usuario AS cajero_usuario,
+            c.id AS cliente_id, c.rut AS cliente_rut, c.nombre AS cliente_nombre
+     FROM ventas v
+     JOIN usuarios u ON u.id = v.usuario_id
+     LEFT JOIN clientes c ON c.id = v.cliente_id
+     WHERE v.estado <> 'en_curso' AND v.fecha >= :inicio AND v.fecha < :fin ${filtroEstado}
+     ORDER BY v.fecha DESC, v.id DESC`,
+    parametros
+  );
+  return filas.map((fila) => ({ ...fila, total: aNumero(fila.total) }));
+}
+
+// RF-37: cantidades por estado y total de las completadas. Se calcula con el período completo,
+// sin importar el filtro de estado de la tabla.
+export async function resumenHistorial({ inicio, fin }) {
+  const [grupos] = await pool.query(
+    `SELECT estado, COUNT(*) AS cantidad, COALESCE(SUM(total), 0) AS total
+     FROM ventas
+     WHERE estado <> 'en_curso' AND fecha >= :inicio AND fecha < :fin
+     GROUP BY estado`,
+    { inicio, fin }
+  );
+  return armarResumenHistorial(grupos);
+}
+
+// RF-38, RF-39: venta con su carrito, cajero, cliente y datos de anulación o cancelación.
+// Devuelve null si no existe. Nunca incluye costos.
+export async function obtenerDetalle(ventaId) {
+  const [filas] = await pool.query(
+    `SELECT v.id, v.estado, v.fecha, v.iniciada_en, v.ultima_actividad, v.cancelada_en, v.total,
+            CASE WHEN v.estado IN ('completada', 'anulada') THEN v.metodo_pago END AS metodo_pago,
+            u.id AS usuario_id, u.nombre AS cajero_nombre, u.usuario AS cajero_usuario,
+            c.id AS cliente_id, c.rut AS cliente_rut, c.nombre AS cliente_nombre,
+            v.anulada_en, v.motivo_anulacion, a.nombre AS anulada_por_nombre
+     FROM ventas v
+     JOIN usuarios u ON u.id = v.usuario_id
+     LEFT JOIN usuarios a ON a.id = v.anulada_por
+     LEFT JOIN clientes c ON c.id = v.cliente_id
+     WHERE v.id = :ventaId`,
+    { ventaId }
+  );
+  if (filas.length === 0) return null;
+
+  const [lineas] = await pool.query(
+    `SELECT d.producto_id, p.nombre, p.unidad_medida, d.cantidad, d.precio_unitario, d.subtotal
+     FROM detalle_ventas d
+     JOIN productos p ON p.id = d.producto_id
+     WHERE d.venta_id = :ventaId
+     ORDER BY d.id`,
+    { ventaId }
+  );
+
+  return {
+    ...filas[0],
+    total: aNumero(filas[0].total),
+    lineas: lineas.map((linea) => ({
+      ...linea,
+      cantidad: aNumero(linea.cantidad),
+      precio_unitario: aNumero(linea.precio_unitario),
+      subtotal: aNumero(linea.subtotal),
+    })),
+  };
 }
 
 // La pertenencia de la venta se valida en el controlador según el rol.
