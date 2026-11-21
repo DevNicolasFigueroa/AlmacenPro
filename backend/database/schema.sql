@@ -70,8 +70,8 @@ CREATE TABLE productos (
 -- ------------------------------------------------------------
 CREATE TABLE clientes (
   id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  rut          VARCHAR(12) NULL UNIQUE,               -- opcional, formato chileno 12.345.678-5
-  nombre       VARCHAR(150) NOT NULL,
+  rut          VARCHAR(12) NOT NULL UNIQUE,           -- único identificador; se guarda sin puntos: 12345678-5
+  nombre       VARCHAR(150) NULL,                     -- opcional: el cliente puede existir solo con su RUT
   telefono     VARCHAR(20) NULL,
   email        VARCHAR(120) NULL,
   direccion    VARCHAR(200) NULL,
@@ -88,23 +88,29 @@ CREATE TABLE clientes (
 CREATE TABLE ventas (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   usuario_id  INT UNSIGNED NOT NULL,                  -- cajero/administrador que vendió
-  cliente_id  INT UNSIGNED NULL,                      -- solo si la venta es al fiado
-  fecha       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  cliente_id  INT UNSIGNED NULL,                      -- cliente identificado por su RUT (obligatorio en el fiado)
+  fecha       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP, -- momento de cierre: al confirmar o cancelar se actualiza
   total       DECIMAL(11,2) NOT NULL DEFAULT 0,
   metodo_pago ENUM('efectivo', 'debito', 'credito', 'fiado') NOT NULL DEFAULT 'efectivo',
-  estado      ENUM('en_curso', 'completada', 'anulada', 'cancelada_automaticamente')
-                NOT NULL DEFAULT 'en_curso',       -- RF-24, RF-25, RF-28
+  estado      ENUM('en_curso', 'completada', 'anulada', 'cancelada', 'cancelada_automaticamente')
+                NOT NULL DEFAULT 'en_curso',       -- cancelada: no se concretó; anulada: corrección del administrador
   iniciada_en DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   ultima_actividad DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, -- RF-24, RF-25
-  cancelada_en DATETIME     NULL,                  -- RF-25, RF-28
+  cancelada_en DATETIME     NULL,                  -- cancelada a mano o por inactividad
+  anulada_por  INT UNSIGNED NULL,                  -- administrador que anuló la venta
+  anulada_en   DATETIME     NULL,
+  motivo_anulacion VARCHAR(255) NULL,
   CONSTRAINT fk_ventas_usuario
     FOREIGN KEY (usuario_id) REFERENCES usuarios (id),
   CONSTRAINT fk_ventas_cliente
     FOREIGN KEY (cliente_id) REFERENCES clientes (id)
-    ON DELETE SET NULL
+    ON DELETE SET NULL,
+  CONSTRAINT fk_ventas_anulada_por
+    FOREIGN KEY (anulada_por) REFERENCES usuarios (id)
 ) ENGINE = InnoDB;
 
 CREATE INDEX idx_ventas_fecha          ON ventas (fecha);
+CREATE INDEX idx_ventas_estado_fecha   ON ventas (estado, fecha);
 CREATE INDEX idx_ventas_cliente        ON ventas (cliente_id);
 CREATE INDEX idx_ventas_usuario_estado ON ventas (usuario_id, estado);
 CREATE INDEX idx_ventas_estado_actividad ON ventas (estado, ultima_actividad);
@@ -116,9 +122,10 @@ CREATE TABLE detalle_ventas (
   id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   venta_id        INT UNSIGNED   NOT NULL,
   producto_id     INT UNSIGNED   NOT NULL,
-  cantidad        INT            NOT NULL,
-  precio_unitario DECIMAL(11,2)  NOT NULL,            -- precio al momento de la venta
-  subtotal        DECIMAL(11,2)  NOT NULL,
+  cantidad        DECIMAL(10,3)  NOT NULL,            -- kilos con hasta 3 decimales
+  precio_unitario DECIMAL(11,2)  NOT NULL,            -- precio congelado al agregar el producto
+  subtotal        DECIMAL(11,2)  NOT NULL,            -- precio por cantidad, redondeado al peso
+  CONSTRAINT uq_detalle_venta_producto UNIQUE (venta_id, producto_id), -- un producto, una línea
   CONSTRAINT fk_detalle_venta
     FOREIGN KEY (venta_id) REFERENCES ventas (id)
     ON DELETE CASCADE,
@@ -153,17 +160,20 @@ CREATE TABLE movimientos_stock (
 CREATE INDEX idx_movimientos_producto_fecha ON movimientos_stock (producto_id, creado_en);
 
 -- ------------------------------------------------------------
--- Transacciones de fiado: cargos (ventas al fiado) y abonos (pagos)
+-- Transacciones de fiado: cargos (ventas al fiado), abonos (pagos) y anulaciones
+-- (deshacen el cargo de una venta anulada; no son pagos del cliente).
+-- Solo se inserta, nunca se modifica.
 -- ------------------------------------------------------------
 CREATE TABLE fiado_transacciones (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   cliente_id  INT UNSIGNED NOT NULL,
-  venta_id    INT UNSIGNED NULL,                      -- carga al vender al fiado
+  venta_id    INT UNSIGNED NULL,                      -- cargo y anulación de una venta; nulo en los abonos
   usuario_id  INT UNSIGNED NOT NULL,                  -- usuario que registra el movimiento
-  tipo        ENUM('cargo', 'abono') NOT NULL,
+  tipo        ENUM('cargo', 'abono', 'anulacion') NOT NULL,
   monto       DECIMAL(11,2) NOT NULL,
   observacion VARCHAR(255) NULL,                      -- ej: "Abono $10.000 efectivo"
   fecha       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uq_fiado_venta_tipo UNIQUE (venta_id, tipo), -- un cargo y una anulación por venta, como máximo
   CONSTRAINT fk_fiado_cliente
     FOREIGN KEY (cliente_id) REFERENCES clientes (id),
   CONSTRAINT fk_fiado_venta
@@ -177,17 +187,24 @@ CREATE INDEX idx_fiado_cliente ON fiado_transacciones (cliente_id);
 
 -- ------------------------------------------------------------
 -- Vista: saldo de fiado por cliente (consulta rápida "de un vistazo")
+-- Saldo = cargos - abonos - anulaciones. Negativo = saldo a favor del cliente.
 -- ------------------------------------------------------------
 CREATE OR REPLACE VIEW v_saldo_fiado AS
 SELECT
   c.id AS cliente_id,
+  c.rut,
   c.nombre,
   c.telefono,
   c.limite_fiado,
-  COALESCE(SUM(CASE WHEN t.tipo = 'cargo' THEN t.monto ELSE -t.monto END), 0) AS saldo_fiado
+  COALESCE(SUM(CASE t.tipo
+                 WHEN 'cargo' THEN t.monto
+                 WHEN 'abono' THEN -t.monto
+                 WHEN 'anulacion' THEN -t.monto
+                 ELSE 0
+               END), 0) AS saldo_fiado
 FROM clientes c
 LEFT JOIN fiado_transacciones t ON t.cliente_id = c.id
-GROUP BY c.id, c.nombre, c.telefono, c.limite_fiado;
+GROUP BY c.id, c.rut, c.nombre, c.telefono, c.limite_fiado;
 
 -- ------------------------------------------------------------
 -- Categorías iniciales típicas de un almacén chileno
