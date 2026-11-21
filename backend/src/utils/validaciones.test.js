@@ -6,7 +6,7 @@ import {
   debeCambiarContrasena,
   esContrasenaValida,
   esIdentificadorValido,
-  esRutaDeCierreDeVenta,
+  esRutaDeVentaEnCurso,
   esRolValido,
   estadoDeBloqueo,
   estadoInactividadVenta,
@@ -152,9 +152,31 @@ test('la contraseña temporal bloquea el resto de funciones (RF-22)', () => {
   assert.equal(debeCambiarContrasena(false, '/api/ventas'), false);
 });
 
-test('una cuenta desactivada solo puede cerrar su venta (RF-38)', () => {
-  assert.equal(esRutaDeCierreDeVenta('POST', '/api/ventas/7/finalizar'), true);
-  assert.equal(esRutaDeCierreDeVenta('POST', '/api/ventas/7/cancelar'), true);
-  assert.equal(esRutaDeCierreDeVenta('GET', '/api/ventas/7/finalizar'), false);
-  assert.equal(esRutaDeCierreDeVenta('POST', '/api/ventas/en-curso'), false);
+test('una cuenta desactivada solo puede terminar su venta (RF-38; spec 003 RF-1)', () => {
+  assert.equal(esRutaDeVentaEnCurso('POST', '/api/ventas/7/confirmar'), true);
+  assert.equal(esRutaDeVentaEnCurso('POST', '/api/ventas/7/cancelar'), true);
+  assert.equal(esRutaDeVentaEnCurso('POST', '/api/ventas/7/finalizar'), true);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/ventas/7/finalizar'), false);
+  assert.equal(esRutaDeVentaEnCurso('POST', '/api/ventas/en-curso'), false);
+});
+
+test('terminar la venta permite ver el carrito, editarlo y buscar clientes y productos (spec 003)', () => {
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/ventas/en-curso'), true);
+  assert.equal(esRutaDeVentaEnCurso('POST', '/api/ventas/7/actividad'), true);
+  assert.equal(esRutaDeVentaEnCurso('POST', '/api/ventas/7/lineas'), true);
+  assert.equal(esRutaDeVentaEnCurso('PATCH', '/api/ventas/7/lineas/12'), true);
+  assert.equal(esRutaDeVentaEnCurso('DELETE', '/api/ventas/7/lineas/12'), true);
+  assert.equal(esRutaDeVentaEnCurso('DELETE', '/api/ventas/7/lineas'), true);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/productos/vendibles'), true);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/clientes/rut/12345678-5'), true);
+  assert.equal(esRutaDeVentaEnCurso('POST', '/api/clientes'), true);
+});
+
+test('una cuenta desactivada no puede iniciar otra venta ni usar rutas de gestión (spec 003)', () => {
+  assert.equal(esRutaDeVentaEnCurso('POST', '/api/ventas/iniciar'), false);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/ventas'), false);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/ventas/7'), false);
+  assert.equal(esRutaDeVentaEnCurso('POST', '/api/ventas/7/anular'), false);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/clientes/7/cuenta'), false);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/productos'), false);
 });

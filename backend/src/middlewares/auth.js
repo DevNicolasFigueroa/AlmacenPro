@@ -6,7 +6,7 @@ import * as usuariosModelo from '../models/usuarios.model.js';
 import * as ventasModelo from '../models/ventas.model.js';
 import {
   debeCambiarContrasena,
-  esRutaDeCierreDeVenta,
+  esRutaDeVentaEnCurso,
   estadoInactividadVenta,
   sesionAceptable,
 } from '../utils/validaciones.js';
@@ -69,7 +69,7 @@ export async function autenticar(req, res, siguiente) {
     }
 
     // Un cajero desactivado a mitad de venta solo puede terminarla o cancelarla.
-    if (!usuario.activo && ventaActiva && !esRutaDeCierreDeVenta(req.method, ruta)) {
+    if (!usuario.activo && ventaActiva && !esRutaDeVentaEnCurso(req.method, ruta)) {
       return res.status(403).json({
         mensaje: 'Termina o cancela la venta antes de cerrar sesión',
       });

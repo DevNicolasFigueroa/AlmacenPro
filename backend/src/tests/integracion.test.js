@@ -337,9 +337,12 @@ test('un cajero desactivado con venta en curso solo puede cerrarla y pierde el a
   assert.equal(desactivar.estado, 200);
   assert.ok(desactivar.datos.mensaje.includes('podrá terminar o cancelar la venta'));
 
-  // Acciones distintas a cerrar la venta quedan bloqueadas para la venta en curso.
-  const actividad = await peticion(`/ventas/${idVenta}/actividad`, { metodo: 'POST', token: tokenCajero });
-  assert.equal(actividad.estado, 403);
+  // Solo las acciones para terminar la venta siguen permitidas (spec 003): no puede iniciar
+  // otra venta ni usar rutas ajenas al cobro.
+  const otraVenta = await peticion('/ventas/iniciar', { metodo: 'POST', token: tokenCajero });
+  assert.equal(otraVenta.estado, 403);
+  const inventario = await peticion('/productos', { token: tokenCajero });
+  assert.equal(inventario.estado, 403);
 
   const fin = await peticion(`/ventas/${idVenta}/finalizar`, { metodo: 'POST', token: tokenCajero });
   assert.equal(fin.estado, 200);

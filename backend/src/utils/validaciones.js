@@ -126,7 +126,22 @@ export function debeCambiarContrasena(requiereCambio, ruta) {
     && ruta !== '/api/auth/logout';
 }
 
-export function esRutaDeCierreDeVenta(metodo, ruta) {
-  return metodo === 'POST'
-    && /^\/api\/ventas\/[^/]+\/(finalizar|cancelar)$/.test(ruta);
+// Spec 003: terminar una venta exige poder ver el carrito, buscar productos, identificar al
+// cliente y confirmar o cancelar; por eso una cuenta desactivada con venta en curso puede usar
+// estas rutas, pero no iniciar otra venta. "finalizar" se retira junto con su ruta (T7).
+const RUTAS_VENTA_EN_CURSO = [
+  ['GET', /^\/api\/ventas\/en-curso$/],
+  ['POST', /^\/api\/ventas\/[^/]+\/(actividad|finalizar|confirmar|cancelar)$/],
+  ['POST', /^\/api\/ventas\/[^/]+\/lineas$/],
+  ['PATCH', /^\/api\/ventas\/[^/]+\/lineas\/[^/]+$/],
+  ['DELETE', /^\/api\/ventas\/[^/]+\/lineas(\/[^/]+)?$/],
+  ['GET', /^\/api\/productos\/vendibles$/],
+  ['GET', /^\/api\/clientes\/rut\/[^/]+$/],
+  ['POST', /^\/api\/clientes$/],
+];
+
+export function esRutaDeVentaEnCurso(metodo, ruta) {
+  return RUTAS_VENTA_EN_CURSO.some(
+    ([metodoPermitido, patron]) => metodo === metodoPermitido && patron.test(ruta)
+  );
 }
