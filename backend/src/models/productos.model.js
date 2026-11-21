@@ -237,6 +237,23 @@ export async function tieneVentasOMovimientos(id) {
   return Boolean(filas[0].tiene);
 }
 
+// RF-25, RF-29, RF-43 (spec 003): bloquea las filas de los productos de una venta o de una
+// anulación con FOR UPDATE. Siempre en orden de id, para que dos operaciones que comparten
+// productos no se bloqueen entre sí (interbloqueo). Incluye productos desactivados.
+// Se ejecuta con la conexión de la transacción: el bloqueo dura hasta su commit o rollback.
+export async function bloquearPorIds(conexion, ids) {
+  if (ids.length === 0) return [];
+  const [filas] = await conexion.query(
+    `SELECT id, nombre, codigo_barras, precio_venta, stock, stock_minimo, unidad_medida, activo
+     FROM productos
+     WHERE id IN (:ids)
+     ORDER BY id
+     FOR UPDATE`,
+    { ids }
+  );
+  return filas.map(convertirNumeros);
+}
+
 // RF-22–27, RF-30: ajuste manual de stock en UNA transacción.
 // SELECT ... FOR UPDATE bloquea la fila: dos ajustes simultáneos se ejecutan uno tras otro
 // y el segundo ve el stock ya descontado (RF-27, RNF-1). No exige que esté activo (RF-30).
