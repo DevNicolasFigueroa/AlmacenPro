@@ -587,7 +587,7 @@ export async function listarHistorial({ inicio, fin, estados = [] }) {
   }
 
   const [filas] = await pool.query(
-    `SELECT v.id, v.fecha, v.total, v.estado,
+    `SELECT v.id, v.fecha, v.total, v.estado, v.iniciada_en, v.ultima_actividad, v.cancelada_en,
             CASE WHEN v.estado IN ('completada', 'anulada') THEN v.metodo_pago END AS metodo_pago,
             u.id AS usuario_id, u.nombre AS cajero_nombre, u.usuario AS cajero_usuario,
             c.id AS cliente_id, c.rut AS cliente_rut, c.nombre AS cliente_nombre
@@ -664,41 +664,6 @@ export async function registrarActividad(ventaId, hoy) {
   return resultado.affectedRows === 1;
 }
 
-// Al terminar la venta, un cajero desactivado pierde el acceso en ese mismo momento (RF-15).
-export async function finalizar(ventaId) {
-  const conexion = await pool.getConnection();
-  try {
-    await conexion.beginTransaction();
-
-    const [ventas] = await conexion.query(
-      `SELECT id, usuario_id FROM ventas WHERE id = ? AND estado = 'en_curso' FOR UPDATE`,
-      [ventaId]
-    );
-    if (ventas.length === 0) {
-      await conexion.rollback();
-      return { noEncontrada: true };
-    }
-
-    await conexion.query(
-      `UPDATE ventas SET estado = 'completada' WHERE id = ?`,
-      [ventaId]
-    );
-    await conexion.query(
-      `UPDATE usuarios SET token_version = token_version + 1
-       WHERE id = ? AND activo = 0`,
-      [ventas[0].usuario_id]
-    );
-
-    await conexion.commit();
-    return { ok: true };
-  } catch (error) {
-    await conexion.rollback();
-    throw error;
-  } finally {
-    conexion.release();
-  }
-}
-
 // Cancelación manual (spec 003, RF-10): la venta queda "cancelada" con su carrito, sin tocar
 // stock ni deuda, y "fecha" pasa a ser el momento de cierre. Si la cuenta está desactivada,
 // pierde el acceso en la misma transacción (spec 001, RF-38, RNF-8).
@@ -763,17 +728,4 @@ export async function cancelarAutomaticamente(venta, hoy) {
   } finally {
     conexion.release();
   }
-}
-
-// RF-28: historial de ventas canceladas automáticamente con su cajero.
-export async function listarCanceladasAutomaticamente() {
-  const [filas] = await pool.query(`
-    SELECT v.id, v.fecha, v.iniciada_en, v.ultima_actividad, v.cancelada_en, v.total,
-           u.id AS usuario_id, u.nombre AS cajero_nombre, u.usuario AS cajero_usuario
-    FROM ventas v
-    INNER JOIN usuarios u ON u.id = v.usuario_id
-    WHERE v.estado = 'cancelada_automaticamente'
-    ORDER BY v.cancelada_en DESC
-  `);
-  return filas;
 }

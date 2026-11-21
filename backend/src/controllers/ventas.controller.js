@@ -2,6 +2,14 @@
 import * as ventasModelo from '../models/ventas.model.js';
 import { ErrorApi } from '../middlewares/errores.js';
 import { estadoInactividadVenta, segundosParaCancelar } from '../utils/validaciones.js';
+import { estadoStock } from '../utils/inventario.js';
+import { formatearRut } from '../utils/rut.js';
+import {
+  estadoCuenta,
+  formatearPesos,
+  normalizarMotivo,
+  rangoDeFechas,
+} from '../utils/ventas.js';
 
 // Código HTTP de cada rechazo que informan los modelos; lo no listado es un conflicto (409).
 const ESTADO_POR_CODIGO = {
@@ -87,6 +95,24 @@ export async function registrarActividad(req, res) {
   res.json({ mensaje: 'Actividad registrada correctamente' });
 }
 
+function leerIdVenta(valor) {
+  const id = Number(valor);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ErrorApi(404, 'No se encontró la venta indicada');
+  }
+  return id;
+}
+
+// RF-22: el cliente es opcional (solo el fiado lo exige, y eso lo valida el modelo).
+function leerClienteId(valor) {
+  if (valor === undefined || valor === null || valor === '') return null;
+  const id = Number(valor);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ErrorApi(400, 'El cliente indicado no es válido');
+  }
+  return id;
+}
+
 function leerProductoId(valor) {
   const id = Number(valor);
   if (!Number.isInteger(id) || id <= 0) {
@@ -154,17 +180,6 @@ export async function vaciarCarrito(req, res) {
   }));
 }
 
-export async function finalizarVenta(req, res) {
-  await obtenerVentaEnCurso(req.params.id, req.usuario);
-
-  const resultado = await ventasModelo.finalizar(Number(req.params.id));
-  if (resultado.noEncontrada) {
-    throw new ErrorApi(409, 'La venta ya no está activa');
-  }
-
-  res.json({ mensaje: 'Venta finalizada correctamente' });
-}
-
 export async function cancelarVenta(req, res) {
   await obtenerVentaEnCurso(req.params.id, req.usuario);
 
@@ -175,11 +190,106 @@ export async function cancelarVenta(req, res) {
   res.json({ mensaje: 'Venta cancelada. Ya puedes cerrar tu sesión' });
 }
 
+// Estados que acepta el filtro del historial. "canceladas" agrupa la cancelación manual y la
+// automática por inactividad.
+const FILTROS_ESTADO = {
+  completada: ['completada'],
+  anulada: ['anulada'],
+  canceladas: ['cancelada', 'cancelada_automaticamente'],
+  cancelada: ['cancelada'],
+  cancelada_automaticamente: ['cancelada_automaticamente'],
+};
+
+// RF-35–37: historial de gestión (solo administrador). Hoy por defecto; con el resumen del
+// período completo, sin importar el filtro de estado de la tabla.
 export async function listar(req, res) {
-  // RF-28: el historial de canceladas es información de gestión, solo del administrador.
-  const estado = req.query.estado;
-  if (estado && estado !== 'cancelada_automaticamente') {
+  const rango = rangoDeFechas({ desde: req.query.desde, hasta: req.query.hasta }, new Date());
+  if (!rango.ok) throw new ErrorApi(400, rango.mensaje);
+
+  const filtro = req.query.estado;
+  if (filtro && !FILTROS_ESTADO[filtro]) {
     throw new ErrorApi(400, 'El filtro de estado no es válido');
   }
-  res.json(await ventasModelo.listarCanceladasAutomaticamente());
+
+  const periodo = { inicio: rango.inicio, fin: rango.fin };
+  const [ventas, resumen] = await Promise.all([
+    ventasModelo.listarHistorial({ ...periodo, estados: filtro ? FILTROS_ESTADO[filtro] : [] }),
+    ventasModelo.resumenHistorial(periodo),
+  ]);
+
+  res.json({ desde: rango.desde, hasta: rango.hasta, ventas, resumen });
+}
+
+// RF-38, RF-39: detalle de una venta ya cerrada (solo administrador).
+export async function detalle(req, res) {
+  const id = leerIdVenta(req.params.id);
+  const venta = await ventasModelo.obtenerDetalle(id);
+  if (!venta || venta.estado === 'en_curso') {
+    throw new ErrorApi(404, 'No se encontró la venta indicada');
+  }
+  res.json({ ...venta, cliente_rut_formateado: venta.cliente_rut ? formatearRut(venta.cliente_rut) : null });
+}
+
+// RF-14–19, RF-25–34: confirma la venta. Una segunda confirmación no registra nada y responde
+// 409 con el estado real de la venta (doble clic o reintento tras un corte de conexión).
+export async function confirmarVenta(req, res) {
+  const id = leerIdVenta(req.params.id);
+  const venta = await ventasModelo.buscarPorId(id);
+  if (!venta) throw new ErrorApi(404, 'No se encontró la venta indicada');
+  if (venta.usuario_id !== req.usuario.id && req.usuario.rol !== 'administrador') {
+    throw new ErrorApi(403, 'No tienes permisos para actuar sobre esta venta');
+  }
+
+  const clienteId = leerClienteId(req.body?.cliente_id);
+  const resultado = await ventasModelo.confirmar({
+    ventaId: id,
+    usuarioId: req.usuario.id,
+    metodoPago: req.body?.metodo_pago,
+    clienteId,
+    montoRecibido: req.body?.monto_recibido,
+    hoy: new Date(),
+  });
+  if (!resultado.ok) lanzarRechazo(resultado);
+
+  // RF-32: el estado de stock de lo vendido se recalcula con el stock nuevo.
+  const productos = resultado.productos.map((producto) => ({
+    ...producto,
+    estado_stock: estadoStock({
+      stock: producto.stock,
+      stockMinimo: producto.stock_minimo,
+      activo: producto.activo,
+    }),
+  }));
+
+  res.json({
+    mensaje: 'Venta confirmada',
+    venta: resultado.venta,
+    vuelto: resultado.vuelto,
+    cliente: resultado.saldo === null ? null : { saldo: resultado.saldo, estado: estadoCuenta(resultado.saldo) },
+    productos,
+  });
+}
+
+// RF-42–48: anula una venta completada (solo administrador), con motivo obligatorio.
+export async function anularVenta(req, res) {
+  const id = leerIdVenta(req.params.id);
+  const motivo = normalizarMotivo(req.body?.motivo);
+  if (!motivo.ok) throw new ErrorApi(400, motivo.mensaje);
+
+  const resultado = await ventasModelo.anular({
+    ventaId: id,
+    usuarioId: req.usuario.id,
+    motivo: motivo.motivo,
+    hoy: new Date(),
+  });
+  if (!resultado.ok) lanzarRechazo(resultado);
+
+  const aFavor = resultado.saldo !== null && resultado.saldo < 0;
+  res.json({
+    mensaje: aFavor
+      ? `Venta anulada. El cliente queda con ${formatearPesos(-resultado.saldo)} a su favor`
+      : 'Venta anulada. El stock volvió al inventario',
+    saldo: resultado.saldo,
+    estado_cuenta: resultado.saldo === null ? null : estadoCuenta(resultado.saldo),
+  });
 }

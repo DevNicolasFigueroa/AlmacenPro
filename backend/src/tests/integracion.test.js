@@ -43,6 +43,29 @@ async function peticion(ruta, { metodo = 'GET', token, cuerpo } = {}) {
   return { estado: respuesta.status, datos: await respuesta.json() };
 }
 
+// Spec 003: terminar una venta es confirmarla, y eso exige productos. Deja un producto con
+// stock en la base de pruebas y le agrega una línea al carrito de la venta indicada.
+async function armarCarrito(token, idVenta) {
+  const [existente] = await pool.query("SELECT id FROM productos WHERE nombre = 'Producto de prueba'");
+  let idProducto = existente[0]?.id;
+  if (!idProducto) {
+    const [resultado] = await pool.query(
+      "INSERT INTO productos (nombre, precio_venta, stock) VALUES ('Producto de prueba', 1000, 100)"
+    );
+    idProducto = resultado.insertId;
+  }
+  const linea = await peticion(`/ventas/${idVenta}/lineas`, {
+    metodo: 'POST', token, cuerpo: { producto_id: idProducto, cantidad: 1 },
+  });
+  assert.equal(linea.estado, 200);
+}
+
+async function confirmarEnEfectivo(token, idVenta) {
+  return peticion(`/ventas/${idVenta}/confirmar`, {
+    metodo: 'POST', token, cuerpo: { metodo_pago: 'efectivo', monto_recibido: 1000 },
+  });
+}
+
 before(async () => {
   const conexion = await mysql.createConnection({
     host: env.db.host,
@@ -180,7 +203,8 @@ test('el cajero usa su clave temporal, crea una venta y no puede cerrar sesión 
   assert.equal(cierre.estado, 409);
   assert.equal(cierre.datos.mensaje, 'Termina o cancela la venta antes de cerrar sesión');
 
-  const fin = await peticion(`/ventas/${idVenta}/finalizar`, { metodo: 'POST', token: tokenListo });
+  await armarCarrito(tokenListo, idVenta);
+  const fin = await confirmarEnEfectivo(tokenListo, idVenta);
   assert.equal(fin.estado, 200);
   assert.equal((await peticion('/auth/logout', { metodo: 'POST', token: tokenListo })).estado, 200);
 });
@@ -201,7 +225,7 @@ test('una venta abandonada se cancela a los 15 minutos y aparece en el historial
 
   const historial = await peticion('/ventas?estado=cancelada_automaticamente', { token: tokenAdmin });
   assert.equal(historial.estado, 200);
-  assert.ok(historial.datos.some((venta) => venta.id === idVenta && venta.cajero_usuario === 'cajero1'));
+  assert.ok(historial.datos.ventas.some((venta) => venta.id === idVenta && venta.cajero_usuario === 'cajero1'));
 });
 
 test('un cajero no puede desactivar cuentas ni consultar el historial', async () => {
@@ -344,7 +368,9 @@ test('un cajero desactivado con venta en curso solo puede cerrarla y pierde el a
   const inventario = await peticion('/productos', { token: tokenCajero });
   assert.equal(inventario.estado, 403);
 
-  const fin = await peticion(`/ventas/${idVenta}/finalizar`, { metodo: 'POST', token: tokenCajero });
+  // Terminar es cobrar: puede armar y confirmar el carrito, pero no iniciar otra venta.
+  await armarCarrito(tokenCajero, idVenta);
+  const fin = await confirmarEnEfectivo(tokenCajero, idVenta);
   assert.equal(fin.estado, 200);
 
   // Al terminar la venta, la sesión se invalida al momento.

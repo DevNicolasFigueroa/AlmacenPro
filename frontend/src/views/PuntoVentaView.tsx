@@ -70,13 +70,6 @@ export function VistaPuntoVenta() {
     }, 'Actividad registrada correctamente');
   }
 
-  async function finalizar() {
-    if (!venta) return;
-    await ejecutar(async () => {
-      await api.post(`/ventas/${venta.id}/finalizar`);
-    }, 'Venta finalizada correctamente');
-  }
-
   async function cancelar() {
     if (!venta) return;
     await ejecutar(async () => {
@@ -99,7 +92,6 @@ export function VistaPuntoVenta() {
         <div>
           <p><strong>Venta en curso</strong> (n.º {venta.id})</p>
           <button onClick={registrarActividad} disabled={cargando}>Registrar actividad</button>
-          <button onClick={finalizar} disabled={cargando}>Finalizar venta</button>
           <button onClick={cancelar} disabled={cargando}>Cancelar venta</button>
         </div>
       )}

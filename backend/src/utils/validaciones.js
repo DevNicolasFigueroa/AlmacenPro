@@ -128,10 +128,10 @@ export function debeCambiarContrasena(requiereCambio, ruta) {
 
 // Spec 003: terminar una venta exige poder ver el carrito, buscar productos, identificar al
 // cliente y confirmar o cancelar; por eso una cuenta desactivada con venta en curso puede usar
-// estas rutas, pero no iniciar otra venta. "finalizar" se retira junto con su ruta (T7).
+// estas rutas, pero no iniciar otra venta.
 const RUTAS_VENTA_EN_CURSO = [
   ['GET', /^\/api\/ventas\/en-curso$/],
-  ['POST', /^\/api\/ventas\/[^/]+\/(actividad|finalizar|confirmar|cancelar)$/],
+  ['POST', /^\/api\/ventas\/[^/]+\/(actividad|confirmar|cancelar)$/],
   ['POST', /^\/api\/ventas\/[^/]+\/lineas$/],
   ['PATCH', /^\/api\/ventas\/[^/]+\/lineas\/[^/]+$/],
   ['DELETE', /^\/api\/ventas\/[^/]+\/lineas(\/[^/]+)?$/],

@@ -155,8 +155,8 @@ test('la contraseña temporal bloquea el resto de funciones (RF-22)', () => {
 test('una cuenta desactivada solo puede terminar su venta (RF-38; spec 003 RF-1)', () => {
   assert.equal(esRutaDeVentaEnCurso('POST', '/api/ventas/7/confirmar'), true);
   assert.equal(esRutaDeVentaEnCurso('POST', '/api/ventas/7/cancelar'), true);
-  assert.equal(esRutaDeVentaEnCurso('POST', '/api/ventas/7/finalizar'), true);
-  assert.equal(esRutaDeVentaEnCurso('GET', '/api/ventas/7/finalizar'), false);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/ventas/7/confirmar'), false);
+  assert.equal(esRutaDeVentaEnCurso('POST', '/api/ventas/7/finalizar'), false); // ya no existe
   assert.equal(esRutaDeVentaEnCurso('POST', '/api/ventas/en-curso'), false);
 });
 

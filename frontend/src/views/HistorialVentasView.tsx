@@ -15,8 +15,8 @@ export function VistaHistorialVentas() {
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    api.get<VentaCancelada[]>('/ventas?estado=cancelada_automaticamente')
-      .then(({ data }) => setVentas(data))
+    api.get<{ ventas: VentaCancelada[] }>('/ventas?estado=cancelada_automaticamente&desde=2000-01-01&hasta=2099-12-31')
+      .then(({ data }) => setVentas(data.ventas))
       .catch((err) => setError(mensajeError(err)))
       .finally(() => setCargando(false));
   }, []);
