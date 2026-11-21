@@ -11,6 +11,8 @@ interface Props {
   lineas: LineaVenta[];
   total: number;
   deshabilitado?: boolean;
+  // Motivo por el que una línea impide confirmar (sin stock suficiente, producto desactivado).
+  problemas?: Record<number, string>;
   onCambiarCantidad: (linea: LineaVenta, cantidad: number) => Promise<boolean>;
   onQuitar: (linea: LineaVenta) => void;
   onVaciar: () => void;
@@ -21,11 +23,12 @@ interface Props {
 interface FilaProps {
   linea: LineaVenta;
   deshabilitado: boolean;
+  problema?: string;
   onCambiarCantidad: Props['onCambiarCantidad'];
   onQuitar: Props['onQuitar'];
 }
 
-function FilaBoleta({ linea, deshabilitado, onCambiarCantidad, onQuitar }: FilaProps) {
+function FilaBoleta({ linea, deshabilitado, problema, onCambiarCantidad, onQuitar }: FilaProps) {
   const [texto, setTexto] = useState<string | null>(null); // null = se muestra el valor guardado
   const [error, setError] = useState('');
   const kilo = linea.unidad_medida === 'kilo';
@@ -46,7 +49,7 @@ function FilaBoleta({ linea, deshabilitado, onCambiarCantidad, onQuitar }: FilaP
   }
 
   return (
-    <li className="boleta-linea">
+    <li className={`boleta-linea${problema ? ' boleta-linea--problema' : ''}`}>
       <div className="boleta-producto">
         <span className="boleta-nombre">{linea.nombre}</span>
         <span className="boleta-precio">
@@ -72,13 +75,15 @@ function FilaBoleta({ linea, deshabilitado, onCambiarCantidad, onQuitar }: FilaP
         ×
       </button>
 
-      {error && <p role="alert" className="error-campo boleta-error">{error}</p>}
+      {(error || problema) && (
+        <p role="alert" className="error-campo boleta-error">{error || problema}</p>
+      )}
     </li>
   );
 }
 
 export function CarritoVenta({
-  numero, lineas, total, deshabilitado = false,
+  numero, lineas, total, deshabilitado = false, problemas = {},
   onCambiarCantidad, onQuitar, onVaciar, onCancelar, onCobrar,
 }: Props) {
   const vacia = lineas.length === 0;
@@ -98,6 +103,7 @@ export function CarritoVenta({
         <ul className="boleta-lineas">
           {lineas.map((linea) => (
             <FilaBoleta key={linea.producto_id} linea={linea} deshabilitado={deshabilitado}
+              problema={problemas[linea.producto_id]}
               onCambiarCantidad={onCambiarCantidad} onQuitar={onQuitar} />
           ))}
         </ul>

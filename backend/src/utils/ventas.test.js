@@ -116,6 +116,15 @@ test('al confirmar se informan todos los problemas del carrito juntos (RF-26, RF
   assert.match(stock.mensaje, /Solo quedan 2 u\. de «Pan»/);
 });
 
+test('si el producto se agotó, el mensaje pide quitarlo en vez de decir que quedan 0 (RF-26)', () => {
+  const resultado = verificarCarritoParaConfirmar(
+    [{ producto_id: 1, cantidad: 1 }],
+    [{ id: 1, nombre: 'Pan', stock: 0, unidad_medida: 'unidad', activo: 1 }]
+  );
+  assert.equal(resultado.problemas[0].stockDisponible, 0);
+  assert.match(resultado.problemas[0].mensaje, /se agotó: quítalo/);
+});
+
 test('un carrito con stock suficiente y productos activos se puede confirmar (RF-25)', () => {
   const resultado = verificarCarritoParaConfirmar(
     [{ producto_id: 1, cantidad: 2 }],

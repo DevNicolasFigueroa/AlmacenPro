@@ -7,9 +7,12 @@ import { AvisoVentaPorExpirar } from '../components/AvisoVentaPorExpirar';
 import { BuscadorProductos } from '../components/BuscadorProductos';
 import { CarritoVenta } from '../components/CarritoVenta';
 import { Modal } from '../components/Modal';
+import { PanelCobro } from '../components/PanelCobro';
+import { ResumenVentaConfirmada } from '../components/ResumenVentaConfirmada';
 import { formatearCantidad, formatearClp } from '../utils/formato';
 import type {
-  Carrito, LineaVenta, ProductoVendible, RespuestaVentaActiva, UltimaVenta, VentaActiva,
+  Carrito, ClienteVenta, LineaVenta, ProblemaConfirmacion, ProductoVendible,
+  RespuestaConfirmacion, RespuestaVentaActiva, UltimaVenta, VentaActiva,
 } from '../types';
 import '../styles/ventas.css';
 
@@ -27,6 +30,11 @@ export function VistaPuntoVenta() {
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
+  const [cobrando, setCobrando] = useState(false);
+  const [problemas, setProblemas] = useState<Record<number, string>>({});
+  const [confirmada, setConfirmada] = useState<
+    { resumen: RespuestaConfirmacion; cliente: ClienteVenta | null } | null
+  >(null);
 
   const consultarEstado = useCallback(async () => {
     try {
@@ -77,6 +85,7 @@ export function VistaPuntoVenta() {
     try {
       const nuevo = await accion();
       setCarrito(nuevo);
+      setProblemas({});
       setAviso(false);
       return true;
     } catch (err) {
@@ -91,6 +100,7 @@ export function VistaPuntoVenta() {
     setCargando(true);
     setError('');
     setMensaje('');
+    setConfirmada(null);
     try {
       await api.post('/ventas/iniciar');
       await consultarEstado();
@@ -131,6 +141,42 @@ export function VistaPuntoVenta() {
     actuar(async () => (await api.delete<Carrito>(`/ventas/${venta.id}/lineas`)).data);
   }
 
+  // RF-26, RF-27: la venta se rechazó completa; se marcan las líneas que hay que corregir.
+  function alHaberProblemas(lista: ProblemaConfirmacion[], texto: string) {
+    setCobrando(false);
+    setProblemas(Object.fromEntries(
+      lista.filter((p) => p.productoId !== undefined).map((p) => [p.productoId as number, p.mensaje])
+    ));
+    setError(`${texto}. Corrige el carrito y vuelve a cobrar.`);
+    consultarEstado();
+  }
+
+  function alConfirmar(resumen: RespuestaConfirmacion, cliente: ClienteVenta | null) {
+    setCobrando(false);
+    setProblemas({});
+    setConfirmada({ resumen, cliente });
+    window.dispatchEvent(new Event('stock-cambiado'));
+    setVenta(null);
+    setCarrito({ lineas: [], total: 0 });
+    setAviso(false);
+    consultarEstado();
+  }
+
+  // RF-30: la venta ya estaba confirmada (doble clic o reintento): se muestra su estado real.
+  async function alYaConfirmada() {
+    setCobrando(false);
+    await consultarEstado();
+    setMensaje('Esa venta ya estaba confirmada, no se cobró dos veces. Mira abajo su detalle.');
+  }
+
+  // RF-30: sin respuesta del servidor no se sabe si la venta quedó registrada. Se consulta su
+  // estado real antes de volver a cobrar, para no cobrar dos veces.
+  async function alSinRespuesta() {
+    setCobrando(false);
+    await consultarEstado();
+    setMensaje('No hubo respuesta al confirmar. Revisa la última venta antes de volver a cobrar.');
+  }
+
   async function cancelar() {
     if (!venta) return;
     setConfirmandoCancelar(false);
@@ -139,6 +185,7 @@ export function VistaPuntoVenta() {
     try {
       await api.post(`/ventas/${venta.id}/cancelar`);
       await consultarEstado();
+      setProblemas({});
       setMensaje('Venta cancelada. Ya puedes cerrar tu sesión.');
     } catch (err) {
       setError(mensajeError(err));
@@ -166,7 +213,10 @@ export function VistaPuntoVenta() {
       {error && <p role="alert" className="alerta alerta--error">{error}</p>}
       {aviso && venta && <AvisoVentaPorExpirar segundosParaCancelar={segundos} />}
 
-      {!venta ? (
+      {confirmada && !venta ? (
+        <ResumenVentaConfirmada resumen={confirmada.resumen} cliente={confirmada.cliente}
+          onNuevaVenta={iniciar} />
+      ) : !venta ? (
         <div className="inicio-venta">
           <button type="button" className="boton boton--grande" onClick={iniciar} disabled={cargando}>
             Nueva venta
@@ -186,12 +236,20 @@ export function VistaPuntoVenta() {
             lineas={carrito.lineas}
             total={carrito.total}
             deshabilitado={cargando}
+            problemas={problemas}
+            onCobrar={() => setCobrando(true)}
             onCambiarCantidad={cambiarCantidad}
             onQuitar={quitar}
             onVaciar={vaciar}
             onCancelar={() => setConfirmandoCancelar(true)}
           />
         </div>
+      )}
+
+      {cobrando && venta && (
+        <PanelCobro ventaId={venta.id} total={carrito.total} onCerrar={() => setCobrando(false)}
+          onConfirmada={alConfirmar} onProblemas={alHaberProblemas} onYaConfirmada={alYaConfirmada}
+          onSinRespuesta={alSinRespuesta} />
       )}
 
       {confirmandoCancelar && venta && (

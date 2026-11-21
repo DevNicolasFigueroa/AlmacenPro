@@ -10,10 +10,16 @@ export function ResumenStock() {
   const [resumen, setResumen] = useState<Resumen | null>(null);
 
   useEffect(() => {
-    api.get<Resumen>('/productos/resumen-stock')
-      .then(({ data }) => setResumen(data))
-      // La franja es informativa: si falla, no se interrumpe el punto de venta.
-      .catch(() => setResumen(null));
+    function cargar() {
+      api.get<Resumen>('/productos/resumen-stock')
+        .then(({ data }) => setResumen(data))
+        // La franja es informativa: si falla, no se interrumpe el punto de venta.
+        .catch(() => setResumen(null));
+    }
+    cargar();
+    // Spec 003, RF-32: al confirmar una venta las marcas de stock se actualizan de inmediato.
+    window.addEventListener('stock-cambiado', cargar);
+    return () => window.removeEventListener('stock-cambiado', cargar);
   }, []);
 
   if (!resumen || (resumen.stockBajo === 0 && resumen.agotados === 0)) return null;

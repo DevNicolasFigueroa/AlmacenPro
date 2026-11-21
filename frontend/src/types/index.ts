@@ -171,3 +171,42 @@ export interface SaldoFiado {
 export type ProductoVendible = Pick<Producto,
   'id' | 'codigo_barras' | 'nombre' | 'categoria' | 'precio_venta' | 'stock' | 'stock_minimo'
   | 'unidad_medida' | 'estado_stock'>;
+
+export type EstadoCuenta = 'deuda' | 'al_dia' | 'a_favor';
+
+// Cliente identificado por su RUT (spec 003). El cajero solo recibe estos campos.
+export interface ClienteVenta {
+  id: number;
+  rut: string; // "12345678-5"
+  rut_formateado: string; // "12.345.678-5"
+  nombre: string | null;
+  saldo: number; // positivo = deuda; negativo = saldo a favor
+  estado: EstadoCuenta;
+}
+
+// Problema que impide confirmar (stock insuficiente o producto desactivado).
+export interface ProblemaConfirmacion {
+  codigo: 'STOCK_INSUFICIENTE' | 'PRODUCTO_DESACTIVADO' | 'CARRITO_VACIO';
+  productoId?: number;
+  nombre?: string | null;
+  mensaje: string;
+  stockDisponible?: number;
+}
+
+export interface ProductoVendido {
+  id: number;
+  nombre: string;
+  unidad_medida: UnidadMedida;
+  stock: number;
+  stock_minimo: number;
+  activo: number;
+  estado_stock: EstadoStock;
+}
+
+export interface RespuestaConfirmacion {
+  mensaje: string;
+  venta: { id: number; total: number; metodo_pago: MetodoPago; cliente_id: number | null; fecha: string };
+  vuelto: number | null;
+  cliente: { saldo: number; estado: EstadoCuenta } | null;
+  productos: ProductoVendido[];
+}

@@ -143,7 +143,9 @@ export function verificarCarritoParaConfirmar(lineas, productos) {
         productoId: producto.id,
         nombre: producto.nombre,
         stockDisponible: disponible,
-        mensaje: `Solo quedan ${formatearCantidadTexto(disponible, producto.unidad_medida)} de «${producto.nombre}»`,
+        mensaje: disponible <= 0
+          ? `«${producto.nombre}» se agotó: quítalo de la venta`
+          : `Solo quedan ${formatearCantidadTexto(disponible, producto.unidad_medida)} de «${producto.nombre}»`,
       });
     }
   }
