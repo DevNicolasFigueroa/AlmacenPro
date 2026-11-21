@@ -1,6 +1,6 @@
 # Spec 003 - Ventas (punto de venta simple)
 
-**Estado:** aprobada
+**Estado:** implementada
 
 ## Contexto y objetivo
 
