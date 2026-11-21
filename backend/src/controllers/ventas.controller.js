@@ -73,7 +73,7 @@ export async function finalizarVenta(req, res) {
 export async function cancelarVenta(req, res) {
   await obtenerVentaEnCurso(req.params.id, req.usuario);
 
-  const resultado = await ventasModelo.cancelar(Number(req.params.id));
+  const resultado = await ventasModelo.cancelar(Number(req.params.id), new Date());
   if (resultado.noEncontrada) {
     throw new ErrorApi(409, 'La venta ya no está activa');
   }
