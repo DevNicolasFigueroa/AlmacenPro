@@ -1,0 +1,350 @@
+/* Punto de venta (spec 003).
+   La pieza que se recuerda es la boleta: el carrito escrito como un comprobante de mesón,
+   con el total en tipografía de letrero. El resto (buscador, botones, alertas) es el sistema
+   común de app.css: botella, letrero, papel y sello. */
+
+.pagina--venta {
+  max-width: 1180px;
+}
+
+/* Sin venta en curso */
+
+.inicio-venta {
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+  padding: 28px 0 8px;
+}
+
+.boton.boton--grande {
+  padding: 18px 40px;
+  border-radius: 14px;
+  font-family: var(--display);
+  font-size: 2rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.inicio-venta-ultima {
+  margin: 0;
+  color: var(--tinta-suave);
+}
+
+/* Dos zonas: buscar a la izquierda, la boleta a la derecha */
+
+.venta-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+
+@media (max-width: 860px) {
+  .venta-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Resultados de la búsqueda */
+
+.resultados {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.resultado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  background: var(--papel);
+}
+
+.resultado:hover {
+  border-color: var(--botella);
+}
+
+.resultado--agotado {
+  background: #f4f4ef;
+}
+
+.resultado--agotado .resultado-nombre,
+.resultado--agotado .resultado-precio {
+  color: var(--tinta-suave);
+}
+
+.resultado-datos {
+  display: grid;
+  min-width: 0;
+}
+
+.resultado-nombre {
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.resultado-precio {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.resultado-detalle {
+  color: var(--tinta-suave);
+  font-size: 0.88rem;
+}
+
+.resultado-ya {
+  color: var(--botella);
+  font-weight: 700;
+}
+
+.error-campo--lista {
+  margin: 4px 0 0;
+}
+
+.resultado-accion {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.resultado-cantidad {
+  width: 74px;
+  padding: 8px 10px;
+  border: 2px solid var(--entrada);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--tinta);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.resultado-cantidad:focus {
+  outline: none;
+  border-color: var(--botella);
+  box-shadow: 0 0 0 3px rgba(243, 181, 63, 0.7);
+}
+
+.vacio--compacto {
+  padding: 22px 18px;
+}
+
+.vacio--compacto strong {
+  font-size: 1.3rem;
+}
+
+/* La boleta */
+
+.boleta {
+  position: sticky;
+  top: 16px;
+  overflow: hidden;
+  border: 1px solid var(--linea);
+  border-top: 10px solid var(--letrero);
+  border-radius: 6px 6px 14px 14px;
+  background: var(--papel);
+  box-shadow: 0 10px 28px rgba(15, 59, 46, 0.12);
+}
+
+.boleta-cabecera {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 2px dashed var(--entrada);
+}
+
+.boleta-cabecera h3 {
+  margin: 0;
+  color: var(--botella);
+  font-family: var(--display);
+  font-size: 1.6rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.boleta-cabecera span {
+  color: var(--tinta-suave);
+  font-size: 0.92rem;
+}
+
+.boleta-vacia {
+  margin: 0;
+  padding: 28px 18px;
+  color: var(--tinta-suave);
+}
+
+.boleta-lineas {
+  max-height: 46vh;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.boleta-linea {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--linea);
+}
+
+.boleta-producto {
+  display: grid;
+  min-width: 0;
+}
+
+.boleta-nombre {
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.boleta-precio {
+  color: var(--tinta-suave);
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.boleta-cantidad {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.boleta-cantidad input {
+  width: 72px;
+  padding: 7px 9px;
+  border: 2px solid var(--entrada);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--tinta);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: right;
+}
+
+.boleta-cantidad input:focus {
+  outline: none;
+  border-color: var(--botella);
+  box-shadow: 0 0 0 3px rgba(243, 181, 63, 0.7);
+}
+
+.boleta-unidad {
+  color: var(--tinta-suave);
+  font-size: 0.88rem;
+}
+
+.boleta-subtotal {
+  min-width: 82px;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  text-align: right;
+}
+
+.boleta-quitar {
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid var(--entrada);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--tinta-suave);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.boleta-quitar:hover:not(:disabled) {
+  border-color: var(--sello);
+  color: var(--sello);
+}
+
+.boleta-error {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+/* El total: lo que el cliente debe leer a distancia */
+
+.boleta-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--botella);
+  color: var(--papel);
+}
+
+.boleta-total span {
+  color: #cfe0d5;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.boleta-total strong {
+  color: var(--letrero);
+  font-family: var(--display);
+  font-size: clamp(2.6rem, 6vw, 3.6rem);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.boleta-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 18px 18px;
+}
+
+.boton.boton--cobrar {
+  flex: 1 1 100%;
+  padding: 16px 20px;
+  border-radius: 12px;
+  font-size: 1.25rem;
+}
+
+@media (max-width: 860px) {
+  /* En pantallas angostas la boleta pasa arriba del buscador: el total queda a la vista
+     y los productos se siguen agregando desde abajo */
+  .boleta {
+    position: static;
+    order: -1;
+  }
+
+  .boleta-lineas {
+    max-height: 38vh;
+  }
+
+  .boleta-linea {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .boleta-cantidad {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .boleta-subtotal {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .boleta-quitar {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+}

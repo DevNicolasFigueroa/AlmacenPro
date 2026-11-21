@@ -1,34 +1,63 @@
-// Punto de venta: controla el ciclo de la venta en curso que protege la sesión (spec 001).
-// El registro de productos, stock y fiado pertenece a la spec del POS.
+// Punto de venta (spec 003): buscar productos, armar el carrito y ver el total al instante.
+// Cada cambio se guarda en el servidor y cuenta como actividad de la venta (spec 001), así el
+// aviso y la cancelación por inactividad no se activan mientras se atiende.
 import { useCallback, useEffect, useState } from 'react';
 import { api, mensajeError } from '../services/api';
 import { AvisoVentaPorExpirar } from '../components/AvisoVentaPorExpirar';
-import type { RespuestaVentaActiva, VentaActiva } from '../types';
+import { BuscadorProductos } from '../components/BuscadorProductos';
+import { CarritoVenta } from '../components/CarritoVenta';
+import { Modal } from '../components/Modal';
+import { formatearCantidad, formatearClp } from '../utils/formato';
+import type {
+  Carrito, LineaVenta, ProductoVendible, RespuestaVentaActiva, UltimaVenta, VentaActiva,
+} from '../types';
+import '../styles/ventas.css';
+
+const NOMBRE_METODO: Record<string, string> = {
+  efectivo: 'efectivo', debito: 'débito', credito: 'crédito', fiado: 'fiado',
+};
 
 export function VistaPuntoVenta() {
   const [venta, setVenta] = useState<VentaActiva | null>(null);
+  const [carrito, setCarrito] = useState<Carrito>({ lineas: [], total: 0 });
+  const [ultimaVenta, setUltimaVenta] = useState<UltimaVenta | null>(null);
   const [aviso, setAviso] = useState(false);
   const [segundos, setSegundos] = useState(0);
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
+  const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
 
   const consultarEstado = useCallback(async () => {
     try {
       const { data } = await api.get<RespuestaVentaActiva>('/ventas/en-curso');
       setVenta(data.ventaActiva);
+      setCarrito({ lineas: data.lineas, total: data.total });
       setAviso(data.aviso);
       setSegundos(data.segundosParaCancelar);
+      setUltimaVenta(data.ultimaVenta);
+      return data;
     } catch (err) {
       setError(mensajeError(err));
+      return null;
     }
   }, []);
 
   useEffect(() => {
     consultarEstado();
-    const sondeo = window.setInterval(consultarEstado, 30_000);
-    return () => window.clearInterval(sondeo);
   }, [consultarEstado]);
+
+  // Cada 30 s se revisa el aviso de inactividad. Si la venta se canceló sola, se informa.
+  useEffect(() => {
+    const sondeo = window.setInterval(async () => {
+      const habiaVenta = Boolean(venta);
+      const data = await consultarEstado();
+      if (habiaVenta && data && !data.ventaActiva) {
+        setMensaje('La venta se canceló por inactividad. Puedes iniciar una nueva.');
+      }
+    }, 30_000);
+    return () => window.clearInterval(sondeo);
+  }, [consultarEstado, venta]);
 
   // Cuenta regresiva local entre dos sondeos al servidor.
   useEffect(() => {
@@ -39,13 +68,31 @@ export function VistaPuntoVenta() {
     return () => window.clearInterval(cuenta);
   }, [aviso]);
 
-  async function ejecutar(accion: () => Promise<void>, texto: string) {
+  // Ejecuta una acción sobre el carrito. Devuelve true si el servidor la aceptó; si no, muestra
+  // el motivo en español (stock, producto desactivado, cantidad...).
+  async function actuar(accion: () => Promise<Carrito>): Promise<boolean> {
     setCargando(true);
     setError('');
     setMensaje('');
     try {
-      await accion();
-      setMensaje(texto);
+      const nuevo = await accion();
+      setCarrito(nuevo);
+      setAviso(false);
+      return true;
+    } catch (err) {
+      setError(mensajeError(err));
+      return false;
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  async function iniciar() {
+    setCargando(true);
+    setError('');
+    setMensaje('');
+    try {
+      await api.post('/ventas/iniciar');
       await consultarEstado();
     } catch (err) {
       setError(mensajeError(err));
@@ -54,46 +101,124 @@ export function VistaPuntoVenta() {
     }
   }
 
-  async function iniciar() {
-    await ejecutar(async () => {
-      const { data } = await api.post<{ venta: { id: number } }>('/ventas/iniciar');
-      setVenta({ id: data.venta.id, usuario_id: 0, estado: 'en_curso', iniciada_en: '', ultima_actividad: '' });
-      setAviso(false);
-      setSegundos(0);
-    }, 'Venta iniciada. Tu sesión no se interrumpirá hasta que la termines');
+  function agregar(producto: ProductoVendible, cantidad: number) {
+    if (!venta) return Promise.resolve(false);
+    return actuar(async () => {
+      const { data } = await api.post<Carrito>(`/ventas/${venta.id}/lineas`, {
+        producto_id: producto.id, cantidad,
+      });
+      return data;
+    });
   }
 
-  async function registrarActividad() {
+  function cambiarCantidad(linea: LineaVenta, cantidad: number) {
+    if (!venta) return Promise.resolve(false);
+    return actuar(async () => {
+      const { data } = await api.patch<Carrito>(
+        `/ventas/${venta.id}/lineas/${linea.producto_id}`, { cantidad }
+      );
+      return data;
+    });
+  }
+
+  function quitar(linea: LineaVenta) {
     if (!venta) return;
-    await ejecutar(async () => {
-      await api.post(`/ventas/${venta.id}/actividad`);
-    }, 'Actividad registrada correctamente');
+    actuar(async () => (await api.delete<Carrito>(`/ventas/${venta.id}/lineas/${linea.producto_id}`)).data);
+  }
+
+  function vaciar() {
+    if (!venta) return;
+    actuar(async () => (await api.delete<Carrito>(`/ventas/${venta.id}/lineas`)).data);
   }
 
   async function cancelar() {
     if (!venta) return;
-    await ejecutar(async () => {
+    setConfirmandoCancelar(false);
+    setCargando(true);
+    setError('');
+    try {
       await api.post(`/ventas/${venta.id}/cancelar`);
-    }, 'Venta cancelada. Ya puedes cerrar tu sesión');
+      await consultarEstado();
+      setMensaje('Venta cancelada. Ya puedes cerrar tu sesión.');
+    } catch (err) {
+      setError(mensajeError(err));
+    } finally {
+      setCargando(false);
+    }
   }
 
-  return (
-    <section>
-      <h2>Punto de Venta</h2>
-      <p>Registra una venta completa en menos de 30 segundos.</p>
+  const enCarrito = Object.fromEntries(
+    carrito.lineas.map((linea) => [linea.producto_id, linea.cantidad])
+  ) as Record<number, number>;
 
-      {mensaje && <p>{mensaje}</p>}
-      {error && <p role="alert">{error}</p>}
+  return (
+    <section className="pagina pagina--venta">
+      <header className="pagina-cabecera">
+        <div>
+          <h2 className="pagina-titulo">Punto de venta</h2>
+          <p className="pagina-descripcion">
+            Agrega los productos y dile al cliente el total. Cada cambio queda guardado al instante.
+          </p>
+        </div>
+      </header>
+
+      {mensaje && <p role="status" className="alerta alerta--ok">{mensaje}</p>}
+      {error && <p role="alert" className="alerta alerta--error">{error}</p>}
       {aviso && venta && <AvisoVentaPorExpirar segundosParaCancelar={segundos} />}
 
       {!venta ? (
-        <button onClick={iniciar} disabled={cargando}>Iniciar venta</button>
-      ) : (
-        <div>
-          <p><strong>Venta en curso</strong> (n.º {venta.id})</p>
-          <button onClick={registrarActividad} disabled={cargando}>Registrar actividad</button>
-          <button onClick={cancelar} disabled={cargando}>Cancelar venta</button>
+        <div className="inicio-venta">
+          <button type="button" className="boton boton--grande" onClick={iniciar} disabled={cargando}>
+            Nueva venta
+          </button>
+          {ultimaVenta && (
+            <p className="inicio-venta-ultima">
+              Última venta: n.º {ultimaVenta.id} por {formatearClp(ultimaVenta.total)} en{' '}
+              {NOMBRE_METODO[ultimaVenta.metodo_pago] ?? ultimaVenta.metodo_pago}.
+            </p>
+          )}
         </div>
+      ) : (
+        <div className="venta-grid">
+          <BuscadorProductos enCarrito={enCarrito} deshabilitado={cargando} onAgregar={agregar} />
+          <CarritoVenta
+            numero={venta.id}
+            lineas={carrito.lineas}
+            total={carrito.total}
+            deshabilitado={cargando}
+            onCambiarCantidad={cambiarCantidad}
+            onQuitar={quitar}
+            onVaciar={vaciar}
+            onCancelar={() => setConfirmandoCancelar(true)}
+          />
+        </div>
+      )}
+
+      {confirmandoCancelar && venta && (
+        <Modal titulo="¿Cancelar la venta?" idTitulo="titulo-cancelar-venta"
+          subtitulo={`Venta n.º ${venta.id}`} onCerrar={() => setConfirmandoCancelar(false)}>
+          <p>
+            {carrito.lineas.length > 0
+              ? `Se descartan ${carrito.lineas.length === 1 ? 'el producto' : `los ${carrito.lineas.length} productos`} del carrito (${formatearClp(carrito.total)}). `
+              : ''}
+            La venta queda registrada como cancelada y no cambia el stock ni la deuda de nadie.
+          </p>
+          {carrito.lineas.length > 0 && (
+            <p className="ayuda">
+              Productos: {carrito.lineas.map((linea) =>
+                `${linea.nombre} (${formatearCantidad(linea.cantidad, linea.unidad_medida)})`).join(', ')}.
+            </p>
+          )}
+          <div className="acciones">
+            <button type="button" className="boton boton--peligro" onClick={cancelar}>
+              Cancelar venta
+            </button>
+            <button type="button" className="boton boton--secundario"
+              onClick={() => setConfirmandoCancelar(false)}>
+              Seguir vendiendo
+            </button>
+          </div>
+        </Modal>
       )}
     </section>
   );

@@ -55,12 +55,41 @@ export interface VentaActiva {
   estado: 'en_curso';
   iniciada_en: string;
   ultima_actividad: string;
+  total: number;
 }
 
-export interface RespuestaVentaActiva {
+export type MetodoPago = 'efectivo' | 'debito' | 'credito' | 'fiado';
+
+// Línea del carrito (spec 003): el precio queda congelado al agregar el producto.
+export interface LineaVenta {
+  producto_id: number;
+  nombre: string;
+  codigo_barras: string | null;
+  unidad_medida: UnidadMedida;
+  stock: number; // stock actual del producto, para avisar en pantalla
+  activo: number;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+}
+
+export interface Carrito {
+  lineas: LineaVenta[];
+  total: number;
+}
+
+export interface UltimaVenta {
+  id: number;
+  fecha: string;
+  total: number;
+  metodo_pago: MetodoPago;
+}
+
+export interface RespuestaVentaActiva extends Carrito {
   ventaActiva: VentaActiva | null;
   aviso: boolean;
   segundosParaCancelar: number;
+  ultimaVenta: UltimaVenta | null;
 }
 
 export interface VentaCancelada {
@@ -138,15 +167,7 @@ export interface SaldoFiado {
   saldo_fiado: string;
 }
 
-export interface DetalleVenta {
-  producto_id: number;
-  nombre: string;
-  cantidad: number;
-  precio_unitario: number;
-}
-
-export interface VentaNueva {
-  cliente_id?: number | null;
-  metodo_pago: 'efectivo' | 'debito' | 'credito' | 'fiado';
-  detalles: DetalleVenta[];
-}
+// Producto que se puede vender: activo y sin costo (GET /productos/vendibles).
+export type ProductoVendible = Pick<Producto,
+  'id' | 'codigo_barras' | 'nombre' | 'categoria' | 'precio_venta' | 'stock' | 'stock_minimo'
+  | 'unidad_medida' | 'estado_stock'>;
