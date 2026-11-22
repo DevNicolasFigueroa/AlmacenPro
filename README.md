@@ -21,6 +21,9 @@ AlmacenPro/
 │   │   ├── middlewares/         # JWT, verificación de roles y errores
 │   │   ├── models/              # Consultas SQL (una por entidad)
 │   │   ├── routes/              # Rutas agrupadas por módulo
+│   │   ├── services/            # Tareas de fondo (cancelación de ventas abandonadas)
+│   │   ├── tests/               # Pruebas de integración contra MySQL
+│   │   ├── utils/               # Reglas de negocio puras y sus pruebas unitarias
 │   │   ├── app.js               # Configuración de Express
 │   │   └── server.js            # Punto de entrada (escucha HTTP)
 │   └── package.json
@@ -29,10 +32,17 @@ AlmacenPro/
 │       ├── components/          # Componentes reutilizables (UI)
 │       ├── context/             # Contexto global de autenticación
 │       ├── services/            # Cliente HTTP (axios) y llamadas a la API
+│       ├── styles/              # Hojas de estilo por módulo
 │       ├── types/               # Tipos e interfaces TypeScript
+│       ├── utils/               # Formato y validación (RUT, montos)
 │       ├── views/               # Vistas por módulo (Login, POS, etc.)
 │       ├── App.tsx              # Rutas y protección por rol
 │       └── main.tsx             # Punto de entrada
+├── docs/
+│   └── CONSTITUTION.md          # Los 6 principios innegociables del proyecto
+├── specs/                       # Especificaciones numeradas (spec, plan y tareas)
+├── AGENTS.md                    # Guía para agentes de código
+├── MEMORY.md                    # Estado y decisiones del proyecto entre sesiones
 └── README.md
 ```
 
@@ -94,8 +104,8 @@ npm run dev                   # API en http://localhost:4000
 | POST | `/api/auth/logout` | sesión | Cierre manual (bloqueado durante una venta) |
 | POST | `/api/auth/cambiar-contrasena` | sesión | Obligatorio si se usa contraseña temporal |
 | GET/POST | `/api/auth/usuarios` | administrador | Listar / crear cuentas |
-| PATCH | `/api/auth/usuarios/:id/estado` | administrador | Activar o desactivar solo cajeros |
-| PATCH | `/api/auth/usuarios/:id/contrasena` | administrador | Contraseña temporal para cajeros |
+| PATCH | `/api/auth/usuarios/:id/estado` | administrador | Activar o desactivar cuentas (siempre debe quedar un administrador activo) |
+| PATCH | `/api/auth/usuarios/:id/contrasena` | administrador | Restablecer la contraseña de un cajero o de otro administrador: genera una temporal que debe cambiarse al ingresar |
 | POST | `/api/ventas/iniciar` | sesión | Abre la venta en curso, que protege la sesión |
 
 ### Productos e inventario (spec 002)
@@ -138,10 +148,10 @@ npm run dev                   # App en http://localhost:5173
 
 ## Módulos del MVP
 
-| Módulo              | Descripción                                                       |
-| ------------------- | ----------------------------------------------------------------- |
-| Autenticación       | Login con JWT, roles administrador / cajero                       |
-| Productos           | Alta, edición y stock con soporte de código de barras             |
-| Ventas (POS)        | Registro de venta rápido con descuento automático de stock        |
-| Clientes y fiado    | Cuenta corriente por cliente, identificado solo por su RUT chileno |
-| Reportes básicos    | Ventas del día / período, productos con stock bajo, saldos de fiado |
+| Módulo              | Estado | Descripción                                                       |
+| ------------------- | ------ | ----------------------------------------------------------------- |
+| Autenticación       | Spec 001, implementada | Login con JWT, roles administrador / cajero                       |
+| Productos           | Spec 002, implementada | Alta, edición y stock con soporte de código de barras             |
+| Ventas (POS)        | Spec 003, implementada | Registro de venta rápido con descuento automático de stock, historial y anulación |
+| Clientes y fiado    | Parcial | El cliente se identifica solo por su RUT y la venta al fiado deja su cargo; faltan abonos, listado y edición (spec 004, aprobada) |
+| Reportes básicos    | Pendiente | Ventas del día / período, productos con stock bajo, saldos de fiado |

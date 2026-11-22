@@ -110,7 +110,7 @@ Este es el primer módulo del sistema porque es la puerta de entrada de todos lo
 
 Estos requisitos no forman parte del MVP. Se conservan con su numeración para implementarlos en una fase posterior sin reinterpretar la spec.
 
-- **RF-13.** CUANDO el Cajero registra una venta fiada, EL SISTEMA debe permitirle consultar el saldo de fiado del cliente que está atendiendo, sin permitirle modificarlo ni registrar abonos. Se implementa junto con la spec de fiado/POS.
+- **RF-13.** CUANDO el Cajero registra una venta fiada, EL SISTEMA debe permitirle consultar el saldo de fiado del cliente que está atendiendo, sin permitirle modificarlo ni registrar abonos. Se implementa junto con la spec de fiado/POS. *(La spec 003 ya muestra el saldo al Cajero al vender; la spec 004 amplía y reemplaza esta regla.)*
 - **RF-30.** CUANDO el Administrador solicita un nuevo código de recuperación mientras tiene sesión activa, EL SISTEMA debe generarlo, mostrarlo una sola vez e invalidar el código anterior.
 - **RF-32.** EL SISTEMA debe registrar, para cada cuenta, la fecha, la hora y la cuenta que realizó cada creación, cambio de rol, activación, desactivación, cambio o restablecimiento de contraseña y regeneración del código de recuperación, y permitir al Administrador consultar ese registro.
 - **RNF-9.** El registro auditable de cambios de cuenta no debe poder modificarse ni eliminarse desde la interfaz.

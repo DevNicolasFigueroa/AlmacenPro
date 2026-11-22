@@ -1,6 +1,6 @@
 # MEMORY.md — Memoria de proyecto AlmacenPro
 
-Estado del proyecto registrado entre sesiones. Leer junto con `docs/constitution.md`
+Estado del proyecto registrado entre sesiones. Leer junto con `docs/CONSTITUTION.md`
 y `AGENTS.md` antes de empezar cualquier tarea.
 
 ## 1. Estado actual
@@ -9,12 +9,13 @@ y `AGENTS.md` antes de empezar cualquier tarea.
 - Base de datos MySQL configurada: 7 tablas del MVP (`usuarios`, `categorias`, `productos`,
   `clientes`, `ventas`, `detalle_ventas`, `fiado_transacciones`) y vista `v_saldo_fiado`.
 - Autenticación completa según `specs/001-autenticacion-y-roles/spec.md` y su
-  `plan.md` aprobado: login de 8 h, roles, bloqueo tras 5 intentos fallidos, cuentas
-  permanentes de administrador, desactivación de cajeros, contraseñas temporales,
-  código de recuperación de un solo uso, cierre manual bloqueado al vender,
-  aviso a los 10 min y cancelación automática a los 15 min de ventas abandonadas,
-  gracia de JWT vencido mientras exista venta en curso e historial de canceladas.
-  13 pruebas unitarias pasan; `tsc --noEmit` y `vite build` sin errores.
+  `plan.md` aprobado: login de 8 h, roles, bloqueo tras 5 intentos fallidos, desactivación y
+  restablecimiento de cuentas (también de administradores, con la guarda de que siempre quede un
+  administrador activo), contraseñas temporales, código de recuperación de un solo uso, cierre
+  manual bloqueado al vender, aviso a los 10 min y cancelación automática a los 15 min de ventas
+  abandonadas, gracia de JWT vencido mientras exista venta en curso e historial de canceladas.
+  Sus pruebas forman parte de las unitarias y de integración actuales; `tsc --noEmit` y
+  `vite build` sin errores.
 - Productos e inventario completo según `specs/002-productos-e-inventario/` (rama
   `002-productos-e-inventario`): alta, edición y desactivación (sin borrado), stock en unidades o
   kilos con 3 decimales, ajuste manual con motivo (merma, reposición, corrección) en una transacción
@@ -23,7 +24,7 @@ y `AGENTS.md` antes de empezar cualquier tarea.
   Migración 003 aplicada en `almacenpro`. 40 pruebas unitarias y 37 de integración (26 de esta
   spec) pasan contra MySQL real; checklist manual en navegador completado; con 5.000 productos
   el peor listado tardó 123 ms (límite 2 s).
-- Constitución en `docs/constitution.md` (6 principios innegociables). `npm run test:integracion`
+- Constitución en `docs/CONSTITUTION.md` (6 principios innegociables). `npm run test:integracion`
   ya se ejecutó con MySQL real (cliente en `C:\Program Files\MySQL\MySQL Server 26.10\bin`).
 - Ventas (punto de venta simple) completo según `specs/003-ventas-pos/` (rama `003-ventas-pos`): carrito
   en `detalle_ventas` de la venta en curso con precio congelado, búsqueda por nombre o código, total como suma
@@ -36,8 +37,12 @@ y `AGENTS.md` antes de empezar cualquier tarea.
   integración (28 de esta spec) pasan contra MySQL real; checklist manual hecho en el navegador sobre una base
   de pruebas; con 5.000 productos, 5.000 clientes y 50.000 ventas lo más lento fue 714 ms (historial de un
   año completo; límite 2 s).
-- Pendiente de implementar: `clientes/fiado` (abonos, editar clientes, listado de deudores; `GET /api/clientes`
-  sigue con 501) y `reportes` (su controlador sigue con 501).
+- Clientes y fiado: la spec 004 está aprobada (rama `004-clientes-y-fiado`, sin código todavía): abonos,
+  anulación de abonos (solo administrador), listado y búsqueda de clientes, edición de datos y corrección
+  de RUT, con el Cajero viendo la cuenta completa. Reemplaza reglas de las specs 001 (RF-12, RF-13) y
+  003 (RF-19, RF-23, RF-24) y el principio 5 de la constitución, que se actualizan al implementarla.
+  Hasta entonces `GET /api/clientes` sigue con 501.
+- Pendiente de implementar: `reportes` (su controlador sigue con 501).
 
 ## 2. Decisiones clave (y por qué)
 
@@ -47,7 +52,8 @@ y `AGENTS.md` antes de empezar cualquier tarea.
 - **Separación estricta de capas (`routes → controllers → models`):** el SQL vive solo en
   los modelos; los controladores validan y responden; facilita auditoría de datos comerciales.
 - **Enfoque al comerciante chileno:** mensajes e interfaz 100% en español, RUT opcional
-  en clientes, montos en CLP; el dueño lee los errores sin ayuda técnica.
+  en la interfaz, el RUT chileno como único identificador del cliente y montos en CLP; el dueño lee los
+  errores sin ayuda técnica.
 - **Anulación de ventas incluida en el MVP:** los errores de caja son frecuentes en un almacén. Solo el administrador puede anular; la anulación revierte stock y fiado en una sola transacción.
 - **El RUT es el único identificador del cliente (spec 003):** se guarda sin puntos (`12345678-5`), es obligatorio
   y único; el nombre es opcional. Se pregunta en toda venta (opcional salvo en el fiado).
@@ -82,8 +88,9 @@ y `AGENTS.md` antes de empezar cualquier tarea.
       dependían del punto de venta (retirar de la venta y vender y ajustar a la vez).
 - [x] Implementar `ventas.controller.js` + `ventas.model.js` con transacción SQL (confirmar, anular, historial).
 - [ ] Aplicar la migración 004 en la base real `almacenpro` (con respaldo antes): `database/migration_004_spec003.sql`.
-- [ ] Escribir la especificación de clientes y fiado: abonos, editar o desactivar clientes, corregir un RUT,
-      agregar nombre y otros datos, listado de deudores y límite de crédito (hoy no existe).
+- [x] Escribir la especificación de clientes y fiado (spec 004, aprobada): abonos, corregir un RUT, agregar
+      nombre y contacto, listado con búsqueda. Sin límite de crédito ni desactivar clientes (fuera de alcance).
+- [ ] Redactar `plan.md` y `tasks.md` de la spec 004 e implementarla.
 - [ ] Escribir la especificación de reportes (ventas del día, ganancias, cierre de caja, stock bajo en el reporte).
 - [ ] Actualizar esta memoria al terminar cada sesión.
 - [x] Implementar ajuste manual de stock con motivo (merma, reposición, corrección); registrar el movimiento en la base de datos para auditoría.

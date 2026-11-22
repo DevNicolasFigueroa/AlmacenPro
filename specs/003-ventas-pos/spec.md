@@ -185,7 +185,7 @@ Depende de la spec 001 (quién vende y qué le está permitido; la venta en curs
 - Descuentos, ofertas, promociones, propinas y listas de precios.
 - Devoluciones parciales y edición de una venta confirmada: la única corrección es anularla completa.
 - Límite de crédito del fiado.
-- Editar, desactivar o eliminar clientes (incluido corregir un RUT) y registrar abonos al fiado: pertenecen a la spec de clientes y fiado.
+- Editar clientes (incluido corregir un RUT) y registrar abonos al fiado: pertenecen a la spec 004 (clientes y fiado). Desactivar o eliminar clientes no tiene spec asignada.
 - Teléfono, dirección y otros datos del cliente además del RUT y el nombre opcional: agregarlos, y corregir o agregar el nombre después del registro, pertenece a la spec de clientes y fiado.
 - Devolver dinero al cliente cuando queda saldo a favor.
 - Guardar el monto recibido y el vuelto en la venta.
@@ -195,27 +195,27 @@ Depende de la spec 001 (quién vende y qué le está permitido; la venta en curs
 
 ## Criterios de finalización
 
-- [ ] El Cajero arma una venta con productos por unidad y por kilo, ve el total actualizado en cada cambio y la confirma en menos de 30 segundos.
-- [ ] Un producto agregado conserva su precio aunque el Administrador lo cambie antes de confirmar, y la venta confirmada conserva el precio con que se vendió.
-- [ ] Al confirmar, el stock de cada producto baja en la cantidad vendida y la venta, su detalle y los movimientos de stock quedan guardados juntos.
-- [ ] Una cantidad mayor al stock se avisa al agregar y, si el stock baja antes de confirmar, la venta se rechaza completa sin descontar nada.
-- [ ] Dos ventas simultáneas del último producto confirman una y rechazan la otra, sin dejar stock negativo.
-- [ ] En efectivo se pide el monto recibido y se muestra el vuelto; en débito y crédito solo se registra el método.
-- [ ] El Cajero registra un cliente con solo su RUT válido, sin salir de la venta y sin pedirle nombre, y un RUT inválido se rechaza con un mensaje claro.
-- [ ] Un RUT ya registrado se reconoce y la venta se asocia a su cuenta; no se crea un cliente duplicado.
-- [ ] Una venta al fiado exige un cliente registrado, muestra su saldo pendiente destacando si está en deuda y su deuda aumenta en el total de la venta.
-- [ ] En cualquier método de pago se pregunta el RUT del cliente; si lo da, la venta queda en su cuenta, y si no quiere darlo, la venta se completa sin cliente asociado.
-- [ ] Una venta fiada sin cliente no se puede confirmar.
-- [ ] Un producto por kilo con medio peso se redondea al peso más cercano y el total es la suma de las líneas.
-- [ ] Si falla cualquier parte de la confirmación, nada queda a medias.
-- [ ] El Administrador consulta las ventas por fecha, con las completadas, anuladas y canceladas, ve el total del período solo de las completadas y abre el detalle de cada una.
-- [ ] Una venta cancelada, manualmente o por inactividad, aparece en el historial con su carrito y sin haber tocado stock ni deuda.
-- [ ] El Administrador consulta la cuenta de un cliente con sus compras, sus fiados y su saldo.
-- [ ] El Administrador anula una venta con motivo obligatorio: el stock vuelve, el saldo del cliente baja y la venta queda marcada como anulada en el historial.
-- [ ] Anular una venta fiada que ya tenía abonos deja el saldo a favor del cliente, sin errores.
-- [ ] Una venta anulada no puede anularse otra vez ni sumarse a los totales.
-- [ ] El Cajero no ve costos, márgenes, historial ni la cuenta completa de los clientes, y no puede anular ventas, ni por pantalla ni por acceso directo.
-- [ ] Todos los montos están en CLP sin decimales y todos los textos en español.
+- [x] El Cajero arma una venta con productos por unidad y por kilo, ve el total actualizado en cada cambio y la confirma en menos de 30 segundos.
+- [x] Un producto agregado conserva su precio aunque el Administrador lo cambie antes de confirmar, y la venta confirmada conserva el precio con que se vendió.
+- [x] Al confirmar, el stock de cada producto baja en la cantidad vendida y la venta, su detalle y los movimientos de stock quedan guardados juntos.
+- [x] Una cantidad mayor al stock se avisa al agregar y, si el stock baja antes de confirmar, la venta se rechaza completa sin descontar nada.
+- [x] Dos ventas simultáneas del último producto confirman una y rechazan la otra, sin dejar stock negativo.
+- [x] En efectivo se pide el monto recibido y se muestra el vuelto; en débito y crédito solo se registra el método.
+- [x] El Cajero registra un cliente con solo su RUT válido, sin salir de la venta y sin pedirle nombre, y un RUT inválido se rechaza con un mensaje claro.
+- [x] Un RUT ya registrado se reconoce y la venta se asocia a su cuenta; no se crea un cliente duplicado.
+- [x] Una venta al fiado exige un cliente registrado, muestra su saldo pendiente destacando si está en deuda y su deuda aumenta en el total de la venta.
+- [x] En cualquier método de pago se pregunta el RUT del cliente; si lo da, la venta queda en su cuenta, y si no quiere darlo, la venta se completa sin cliente asociado.
+- [x] Una venta fiada sin cliente no se puede confirmar.
+- [x] Un producto por kilo con medio peso se redondea al peso más cercano y el total es la suma de las líneas.
+- [x] Si falla cualquier parte de la confirmación, nada queda a medias.
+- [x] El Administrador consulta las ventas por fecha, con las completadas, anuladas y canceladas, ve el total del período solo de las completadas y abre el detalle de cada una.
+- [x] Una venta cancelada, manualmente o por inactividad, aparece en el historial con su carrito y sin haber tocado stock ni deuda.
+- [x] El Administrador consulta la cuenta de un cliente con sus compras, sus fiados y su saldo.
+- [x] El Administrador anula una venta con motivo obligatorio: el stock vuelve, el saldo del cliente baja y la venta queda marcada como anulada en el historial.
+- [x] Anular una venta fiada que ya tenía abonos deja el saldo a favor del cliente, sin errores.
+- [x] Una venta anulada no puede anularse otra vez ni sumarse a los totales.
+- [x] El Cajero no ve costos, márgenes, historial ni la cuenta completa de los clientes, y no puede anular ventas, ni por pantalla ni por acceso directo.
+- [x] Todos los montos están en CLP sin decimales y todos los textos en español.
 
 ## Dudas abiertas
 

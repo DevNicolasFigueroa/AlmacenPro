@@ -42,7 +42,7 @@ Lo que dice la spec: abonos, editar o desactivar clientes, corregir un RUT, list
 | --- | --- | --- | --- |
 | `backend/database/migration_004_spec003.sql` | Crear | Para bases existentes (una sola vez, con respaldo): ver detalle abajo. Se detiene si hay clientes sin RUT. | RF-4, 5, 10, 20, 43, 44 |
 | `backend/database/schema.sql` | Modificar | Mismos cambios para bases nuevas (las pruebas cargan este archivo). | idem |
-| `docs/constitution.md` | Modificar | Principio 5: cargo, abono o anulación; conciliación con anulaciones. | RF-43 |
+| `docs/CONSTITUTION.md` | Modificar | Principio 5: cargo, abono o anulación; conciliación con anulaciones. | RF-43 |
 
 **Cambios de esquema:**
 

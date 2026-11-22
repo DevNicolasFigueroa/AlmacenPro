@@ -145,7 +145,7 @@ Depende de la spec 001 (quién opera y qué le está permitido) y es base de la 
 - [x] Un código de barras repetido se rechaza, incluso si pertenece a un producto desactivado.
 - [x] Un precio de venta menor al costo muestra la advertencia y solo se guarda al confirmar.
 - [x] El Administrador edita precio, costo, categoría y mínimo; el stock no se puede editar desde la ficha.
-- [x] Desactivar un producto con stock lo retira de las alertas y de la consulta de productos vendibles sin perder su stock ni su historial; reactivarlo lo devuelve. *(El retiro efectivo del punto de venta se verifica con la spec de ventas.)*
+- [x] Desactivar un producto con stock lo retira de las alertas y de la consulta de productos vendibles sin perder su stock ni su historial; reactivarlo lo devuelve. *(El retiro efectivo del punto de venta quedó verificado con la spec 003.)*
 - [x] No existe forma de eliminar un producto.
 - [x] Un ajuste de merma, reposición y corrección actualiza el stock correctamente y deja el registro con fecha, cuenta, motivo, nota, stock antes y después.
 - [x] Un ajuste que dejaría stock negativo se rechaza sin modificar nada.
@@ -153,7 +153,7 @@ Depende de la spec 001 (quién opera y qué le está permitido) y es base de la 
 - [x] El historial de un producto se consulta y no puede modificarse ni borrarse.
 - [x] Un producto con stock menor o igual a su mínimo aparece como "stock bajo", y con stock 0 como "agotado", en el listado de Administrador y Cajero.
 - [x] Administrador y Cajero ven al ingresar el resumen de productos con stock bajo y agotados.
-- [x] Un producto desactivado aparece como "No disponible" para ambos roles. *(Que no se pueda vender se verifica con la spec de ventas.)*
+- [x] Un producto desactivado aparece como "No disponible" para ambos roles. *(Que no se pueda vender quedó verificado con la spec 003.)*
 - [x] El historial de un producto por kilo acepta y muestra cantidades con decimales (ej. 2,5 kg).
 - [x] El Cajero ve nombre, categoría, precio y stock, pero nunca costo ni margen, ni por pantalla ni por acceso directo.
 - [x] El Cajero no puede crear, editar, desactivar ni ajustar productos.

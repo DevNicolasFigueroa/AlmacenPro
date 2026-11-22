@@ -1,7 +1,7 @@
 # Tareas 002 — Productos e inventario
 
 **Alcance:** RF-1–34 y RNF-1–7 de la spec, según `plan.md`.
-**Limitación de cobertura:** RF-13 ("retirar de la venta") y RF-27 (vender y ajustar a la vez) solo quedan preparados (consulta de productos vendibles y contrato de bloqueo); se verifican de punta a punta cuando exista la spec de ventas.
+**Limitación de cobertura:** RF-13 ("retirar de la venta") y RF-27 (vender y ajustar a la vez) solo quedan preparados (consulta de productos vendibles y contrato de bloqueo); se verificaron de punta a punta con la spec 003 (ventas).
 
 Ordenadas por dependencia. Cada tarea se verifica antes de pasar a la siguiente.
 Las tareas completadas y subidas quedan marcadas con `[x]`.
