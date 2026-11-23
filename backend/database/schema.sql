@@ -160,25 +160,36 @@ CREATE TABLE movimientos_stock (
 CREATE INDEX idx_movimientos_producto_fecha ON movimientos_stock (producto_id, creado_en);
 
 -- ------------------------------------------------------------
--- Transacciones de fiado: cargos (ventas al fiado), abonos (pagos) y anulaciones
--- (deshacen el cargo de una venta anulada; no son pagos del cliente).
+-- Transacciones de fiado: cargos (ventas al fiado), abonos (pagos), anulaciones de venta
+-- (deshacen el cargo de una venta anulada; no son pagos del cliente) y anulaciones de abono
+-- (deshacen un abono mal registrado).
 -- Solo se inserta, nunca se modifica.
 -- ------------------------------------------------------------
 CREATE TABLE fiado_transacciones (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   cliente_id  INT UNSIGNED NOT NULL,
   venta_id    INT UNSIGNED NULL,                      -- cargo y anulación de una venta; nulo en los abonos
+  abono_anulado_id INT UNSIGNED NULL,                 -- solo en la anulación de abono: el abono que deshace
   usuario_id  INT UNSIGNED NOT NULL,                  -- usuario que registra el movimiento
-  tipo        ENUM('cargo', 'abono', 'anulacion') NOT NULL,
+  tipo        ENUM('cargo', 'abono', 'anulacion', 'anulacion_abono') NOT NULL,
   monto       DECIMAL(11,2) NOT NULL,
-  observacion VARCHAR(255) NULL,                      -- ej: "Abono $10.000 efectivo"
+  metodo_pago ENUM('efectivo', 'debito', 'credito', 'transferencia') NULL, -- solo en los abonos
+  observacion VARCHAR(255) NULL,                      -- observación del abono o motivo de su anulación
   fecha       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uq_fiado_venta_tipo UNIQUE (venta_id, tipo), -- un cargo y una anulación por venta, como máximo
+  CONSTRAINT uq_fiado_abono_anulado UNIQUE (abono_anulado_id), -- un abono se anula una sola vez
+  CONSTRAINT chk_fiado_monto_positivo CHECK (monto > 0),
+  CONSTRAINT chk_fiado_anulacion_abono CHECK (
+    (tipo = 'anulacion_abono' AND abono_anulado_id IS NOT NULL)
+    OR (tipo <> 'anulacion_abono' AND abono_anulado_id IS NULL)
+  ),
   CONSTRAINT fk_fiado_cliente
     FOREIGN KEY (cliente_id) REFERENCES clientes (id),
   CONSTRAINT fk_fiado_venta
     FOREIGN KEY (venta_id) REFERENCES ventas (id)
     ON DELETE SET NULL,
+  CONSTRAINT fk_fiado_abono_anulado
+    FOREIGN KEY (abono_anulado_id) REFERENCES fiado_transacciones (id),
   CONSTRAINT fk_fiado_usuario
     FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
 ) ENGINE = InnoDB;
@@ -186,8 +197,28 @@ CREATE TABLE fiado_transacciones (
 CREATE INDEX idx_fiado_cliente ON fiado_transacciones (cliente_id);
 
 -- ------------------------------------------------------------
+-- Cambios de RUT: constancia de quién corrigió el RUT de un cliente, cuándo y de cuál a cuál.
+-- Solo se inserta, nunca se modifica.
+-- ------------------------------------------------------------
+CREATE TABLE cambios_rut (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  cliente_id   INT UNSIGNED NOT NULL,
+  rut_anterior VARCHAR(12)  NOT NULL,
+  rut_nuevo    VARCHAR(12)  NOT NULL,
+  usuario_id   INT UNSIGNED NOT NULL,                 -- cuenta que corrigió el RUT
+  creado_en    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_cambios_rut_cliente
+    FOREIGN KEY (cliente_id) REFERENCES clientes (id),
+  CONSTRAINT fk_cambios_rut_usuario
+    FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
+) ENGINE = InnoDB;
+
+CREATE INDEX idx_cambios_rut_cliente ON cambios_rut (cliente_id, creado_en);
+
+-- ------------------------------------------------------------
 -- Vista: saldo de fiado por cliente (consulta rápida "de un vistazo")
--- Saldo = cargos - abonos - anulaciones. Negativo = saldo a favor del cliente.
+-- Saldo = cargos - abonos - anulaciones de venta + anulaciones de abono.
+-- Negativo = saldo a favor del cliente.
 -- ------------------------------------------------------------
 CREATE OR REPLACE VIEW v_saldo_fiado AS
 SELECT
@@ -200,6 +231,7 @@ SELECT
                  WHEN 'cargo' THEN t.monto
                  WHEN 'abono' THEN -t.monto
                  WHEN 'anulacion' THEN -t.monto
+                 WHEN 'anulacion_abono' THEN t.monto
                  ELSE 0
                END), 0) AS saldo_fiado
 FROM clientes c
