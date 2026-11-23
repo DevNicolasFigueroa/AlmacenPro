@@ -1,17 +1,26 @@
-// Rutas de clientes (spec 003). Cajero y administrador identifican y registran clientes por RUT
-// al vender; solo el administrador ve la cuenta completa de un cliente (RF-23, RF-24).
+// Rutas de clientes (specs 003 y 004). Cajero y administrador identifican, registran y buscan
+// clientes, ven su cuenta y el detalle de sus compras, y editan sus datos. Las rutas fijas van
+// antes de "/:id" para que no se interpreten como un identificador.
 import { Router } from 'express';
-import { autenticar, requiereRol } from '../middlewares/auth.js';
-import { buscarPorRut, cuenta, listar, registrar } from '../controllers/clientes.controller.js';
+import { autenticar } from '../middlewares/auth.js';
+import {
+  actualizar,
+  buscarPorRut,
+  cuenta,
+  detalleCompra,
+  listar,
+  registrar,
+} from '../controllers/clientes.controller.js';
 
 const router = Router();
 
 router.use(autenticar);
 
 router.get('/rut/:rut', buscarPorRut);
+router.get('/', listar);
 router.post('/', registrar);
-router.get('/:id/cuenta', requiereRol('administrador'), cuenta);
-
-router.get('/', requiereRol('administrador'), listar);
+router.get('/:id/cuenta', cuenta);
+router.get('/:id/compras/:ventaId', detalleCompra);
+router.patch('/:id', actualizar);
 
 export default router;

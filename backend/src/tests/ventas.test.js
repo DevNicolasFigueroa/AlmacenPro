@@ -541,24 +541,77 @@ test('un RUT ya registrado se reconoce aunque se escriba distinto y no se duplic
   assert.equal((await peticion('/clientes/rut/11.111.111-0')).estado, 400);
 });
 
-test('el cajero identifica y registra clientes, pero solo ve identidad y saldo; la cuenta es del administrador (RF-20, RF-24)', async () => {
+test('el cajero registra clientes y, desde la spec 004, ve su cuenta y el listado; el total por cobrar y los cambios de RUT son del administrador (RF-20; spec 004 RF-6, RF-7, RF-25)', async () => {
   const cajero = await nuevoCajero();
   const registrado = await peticion('/clientes', { metodo: 'POST', token: cajero.token, cuerpo: { rut: rutValido(66666666) } });
   assert.equal(registrado.estado, 201);
   const id = registrado.datos.cliente.id;
-  assert.deepEqual(Object.keys(registrado.datos.cliente).sort(),
-    ['estado', 'id', 'nombre', 'rut', 'rut_formateado', 'saldo']);
+  const campos = ['creado_en', 'direccion', 'email', 'estado', 'id', 'nombre', 'rut', 'rut_formateado', 'saldo', 'telefono'];
+  assert.deepEqual(Object.keys(registrado.datos.cliente).sort(), campos);
 
   const consulta = await peticion(`/clientes/rut/${rutValido(66666666)}`, { token: cajero.token });
-  assert.deepEqual(Object.keys(consulta.datos).sort(),
-    ['estado', 'id', 'nombre', 'rut', 'rut_formateado', 'saldo']);
+  assert.deepEqual(Object.keys(consulta.datos).sort(), campos);
 
-  assert.equal((await peticion(`/clientes/${id}/cuenta`, { token: cajero.token })).estado, 403);
-  assert.equal((await peticion('/clientes', { token: cajero.token })).estado, 403);
+  // El cajero ve la cuenta y el listado, sin el historial de cambios de RUT ni el total por cobrar
+  const deCajero = await peticion(`/clientes/${id}/cuenta`, { token: cajero.token });
+  assert.equal(deCajero.estado, 200);
+  assert.deepEqual([deCajero.datos.compras, deCajero.datos.movimientos], [[], []]);
+  assert.equal('cambios_rut' in deCajero.datos, false);
+  const listaCajero = await peticion('/clientes', { token: cajero.token });
+  assert.equal(listaCajero.estado, 200);
+  assert.equal('resumen' in listaCajero.datos, false);
+
   const admin = await peticion(`/clientes/${id}/cuenta`);
   assert.equal(admin.estado, 200);
-  assert.deepEqual([admin.datos.compras, admin.datos.movimientos], [[], []]);
+  assert.deepEqual([admin.datos.compras, admin.datos.movimientos, admin.datos.cambios_rut], [[], [], []]);
+  const listaAdmin = await peticion('/clientes');
+  assert.deepEqual(Object.keys(listaAdmin.datos.resumen).sort(), ['clientes_en_deuda', 'total_por_cobrar']);
   assert.equal((await peticion('/clientes/999999/cuenta')).estado, 404);
+  assert.equal((await peticion('/clientes/999999/cuenta', { token: cajero.token })).estado, 404);
+});
+
+test('el cajero solo abre el detalle de las compras del cliente cuya cuenta ve, sin acceso al historial (spec 004, RF-7, RF-9)', async () => {
+  const cajero = await nuevoCajero();
+  const producto = await nuevoProducto({ nombre: 'Detalle visible', costo: 555, precio: 1200, stock: 20 });
+  const cliente = await registrarCliente(rutValido(31000001), 'Dueña de la compra');
+  const ajeno = await registrarCliente(rutValido(31000002), 'Otra persona');
+  const ventaId = await armarVenta(cajero.token, [[producto, 2]]);
+  await confirmar(cajero.token, ventaId, { metodo_pago: 'debito', cliente_id: cliente.id });
+
+  const detalle = await peticion(`/clientes/${cliente.id}/compras/${ventaId}`, { token: cajero.token });
+  assert.equal(detalle.estado, 200);
+  assert.equal(detalle.datos.total, 2400);
+  assert.equal(detalle.datos.lineas[0].nombre, 'Detalle visible');
+  assert.equal(JSON.stringify(detalle.datos).includes('555'), false, 'el costo no viaja');
+  assert.equal(JSON.stringify(detalle.datos).includes('costo'), false);
+
+  // De otro cliente, inexistente o sin cerrar: 404. El historial sigue siendo del administrador
+  assert.equal((await peticion(`/clientes/${ajeno.id}/compras/${ventaId}`, { token: cajero.token })).estado, 404);
+  assert.equal((await peticion(`/clientes/${cliente.id}/compras/999999`, { token: cajero.token })).estado, 404);
+  assert.equal((await peticion(`/ventas/${ventaId}`, { token: cajero.token })).estado, 403);
+  assert.equal((await peticion('/ventas', { token: cajero.token })).estado, 403);
+  assert.equal((await peticion(`/clientes/${cliente.id}/compras/${ventaId}`)).estado, 200);
+});
+
+test('el cajero edita los datos de contacto del cliente y un texto vacío borra el dato (spec 004, RF-20)', async () => {
+  const cajero = await nuevoCajero();
+  const cliente = await registrarCliente(rutValido(31000003));
+
+  const guardado = await peticion(`/clientes/${cliente.id}`, {
+    metodo: 'PATCH', token: cajero.token,
+    cuerpo: { nombre: '  Rosa   Soto ', telefono: '+56 9 8765 4321', email: 'rosa@correo.cl', direccion: 'Calle 1' },
+  });
+  assert.equal(guardado.estado, 200);
+  assert.equal(guardado.datos.cliente.nombre, 'Rosa Soto');
+  assert.equal(guardado.datos.cliente.telefono, '+56 9 8765 4321');
+
+  const borrado = await peticion(`/clientes/${cliente.id}`, { metodo: 'PATCH', token: cajero.token, cuerpo: { email: '' } });
+  assert.equal(borrado.datos.cliente.email, null);
+  assert.equal(borrado.datos.cliente.nombre, 'Rosa Soto');
+
+  assert.equal((await peticion(`/clientes/${cliente.id}`, { metodo: 'PATCH', token: cajero.token, cuerpo: { email: 'sin-arroba' } })).estado, 400);
+  assert.equal((await peticion(`/clientes/${cliente.id}`, { metodo: 'PATCH', token: cajero.token, cuerpo: {} })).estado, 400);
+  assert.equal((await peticion('/clientes/999999', { metodo: 'PATCH', token: cajero.token, cuerpo: { nombre: 'x' } })).estado, 404);
 });
 
 test('el fiado exige cliente, crea el cargo por el total y suma a la deuda previa sin bloquear (RF-17, RF-18, RF-25)', async () => {
