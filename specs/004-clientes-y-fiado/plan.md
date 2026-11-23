@@ -74,8 +74,8 @@ Lo que dice la spec: límite de crédito, desactivar o fusionar clientes, cobran
 | Archivo | Tipo | Responsabilidad | RF |
 | --- | --- | --- | --- |
 | `backend/src/utils/clientes.js` + `clientes.test.js` | Crear | Funciones puras de la sección 2 (`npm test` recoge `src/utils/*.test.js`) | RF-2, 10 a 12, 16, 20, 26 |
-| `backend/src/models/fiadoTransacciones.model.js` | Modificar | `insertarAbono`, `insertarAnulacionAbono`, `buscarAbonoParaAnular` (con bloqueo), `listarPorCliente` con la marca de abono anulado y el método | RF-10 a 19, 26, 27 |
-| `backend/src/models/clientes.model.js` | Modificar | `listar` (búsqueda, estado, orden, página y resumen), `actualizarDatos`, `cambiarRut` (transacción), `bloquearPorId`, `obtenerCuenta` con contacto y, para el administrador, los cambios de RUT; `buscar*` devuelven el contacto | RF-1 a 7, 20 a 25 |
+| `backend/src/models/fiadoTransacciones.model.js` | Modificar | `insertarAbono`, `insertarAnulacionAbono`, `buscarMovimientoParaAnular` (con bloqueo) y `listarPorCliente` con la marca de abono anulado y el método | RF-10 a 19, 26, 27 |
+| `backend/src/models/clientes.model.js` | Modificar | `listar` (búsqueda, estado, orden, página y resumen), `actualizarDatos`, las transacciones `registrarAbono`, `anularAbono` y `cambiarRut` (todas bloquean primero al cliente; viven aquí y no en el modelo de fiado para no crear una dependencia circular entre modelos), `bloquearPorId`, `obtenerCuenta` con contacto y, para el administrador, los cambios de RUT; `buscar*` devuelven el contacto | RF-1 a 7, 10 a 25 |
 | `backend/src/models/cambiosRut.model.js` | Crear | `insertar(conexion, …)` y `listarPorCliente` (solo inserción y lectura) | RF-24, 25 |
 | `backend/src/controllers/clientes.controller.js` | Modificar | `listar`, `cuenta` (ambos roles), `detalleCompra`, `actualizar`, `cambiarRut`, `registrarAbono`, `anularAbono`; `armarCliente` ya no distingue rol; se elimina el 501 | RF-1 a 27 |
 | `backend/src/routes/clientes.routes.js` | Modificar | Rutas nuevas (tabla abajo); rutas fijas antes de `/:id` | — |
