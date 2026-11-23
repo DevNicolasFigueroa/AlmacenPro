@@ -3,18 +3,23 @@
 // compra se ve su detalle sin costos. Cada abono muestra su método y, si se anuló, cuándo y por qué.
 import { useCallback, useEffect, useState } from 'react';
 import { api, mensajeError } from '../services/api';
+import { useAutenticacion } from '../context/AutenticacionContext';
+import { AbonoModal } from './AbonoModal';
+import { AnularAbonoModal } from './AnularAbonoModal';
 import { DetalleVentaModal } from './DetalleVentaModal';
 import { EstadoSaldo } from './EstadoSaldo';
 import { EtiquetaEstadoVenta } from './EtiquetaEstadoVenta';
 import {
   NOMBRE_METODO_ABONO, NOMBRE_METODO_PAGO, NOMBRE_MOVIMIENTO_FIADO, formatearClp, formatearFechaHora,
 } from '../utils/formato';
-import type { CuentaCliente as Cuenta, MovimientoFiado } from '../types';
+import type { CuentaCliente as Cuenta, EstadoCuenta, MovimientoFiado } from '../types';
 import '../styles/ventas.css';
 import '../styles/clientes.css';
 
 interface Props {
   clienteId: number;
+  // Se llama cuando el saldo cambia (abono o anulación), para que la pantalla de origen lo actualice.
+  onSaldoCambiado?: (saldo: number, estado: EstadoCuenta) => void;
 }
 
 // Cargo y anulación de abono suben la deuda (+); abono y anulación de venta la bajan (−).
@@ -38,28 +43,45 @@ function DetalleMovimiento({ movimiento }: { movimiento: MovimientoFiado }) {
   );
 }
 
-export function CuentaCliente({ clienteId }: Props) {
+export function CuentaCliente({ clienteId, onSaldoCambiado }: Props) {
+  const { usuario } = useAutenticacion();
   const [cuenta, setCuenta] = useState<Cuenta | null>(null);
   const [error, setError] = useState('');
+  const [mensaje, setMensaje] = useState('');
   const [compraAbierta, setCompraAbierta] = useState<number | null>(null);
+  const [abonando, setAbonando] = useState(false);
+  const [anulando, setAnulando] = useState<MovimientoFiado | null>(null);
+
+  // RF-19: solo el administrador anula abonos; el servidor también lo exige.
+  const esAdministrador = usuario?.rol === 'administrador';
 
   const cargar = useCallback(async () => {
     setError('');
     try {
       const { data } = await api.get<Cuenta>(`/clientes/${clienteId}/cuenta`);
       setCuenta(data);
+      return data;
     } catch (err) {
       setError(mensajeError(err));
+      return null;
     }
   }, [clienteId]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  if (error) return <p role="alert" className="alerta alerta--error">{error}</p>;
+  // Tras un abono o una anulación se vuelve a leer la cuenta y se avisa a la pantalla de origen.
+  async function alCambiarSaldo(texto: string) {
+    setMensaje(texto);
+    const actualizada = await cargar();
+    if (actualizada) onSaldoCambiado?.(actualizada.cliente.saldo, actualizada.cliente.estado);
+  }
+
+  if (error && !cuenta) return <p role="alert" className="alerta alerta--error">{error}</p>;
   if (!cuenta) return <p className="pagina-descripcion">Cargando la cuenta…</p>;
 
   const { cliente } = cuenta;
   const contacto = [cliente.telefono, cliente.email, cliente.direccion].filter(Boolean);
+  const nombreCliente = cliente.nombre ?? cliente.rut_formateado;
 
   return (
     <>
@@ -77,6 +99,15 @@ export function CuentaCliente({ clienteId }: Props) {
           <EstadoSaldo estado={cliente.estado} saldo={cliente.saldo} />
         </div>
       </div>
+
+      <div className="cuenta-acciones">
+        <button type="button" className="boton" onClick={() => { setMensaje(''); setAbonando(true); }}>
+          Registrar abono
+        </button>
+      </div>
+
+      {mensaje && <p role="status" className="alerta alerta--ok">{mensaje}</p>}
+      {error && <p role="alert" className="alerta alerta--error">{error}</p>}
 
       <h3 className="pagina-subtitulo">Compras</h3>
       {cuenta.compras.length === 0 ? (
@@ -128,6 +159,7 @@ export function CuentaCliente({ clienteId }: Props) {
                 <th>Fecha y hora</th>
                 <th>Detalle</th>
                 <th className="numero">Monto</th>
+                {esAdministrador && <th><span className="visualmente-oculto">Acciones</span></th>}
               </tr>
             </thead>
             <tbody>
@@ -145,11 +177,34 @@ export function CuentaCliente({ clienteId }: Props) {
                     className={`numero ${SUMA_A_LA_DEUDA.has(movimiento.tipo) ? 'cantidad--menos' : 'cantidad--mas'}`}>
                     {SUMA_A_LA_DEUDA.has(movimiento.tipo) ? '+' : '−'}{formatearClp(movimiento.monto)}
                   </td>
+                  {esAdministrador && (
+                    <td className="celda-acciones-movimiento">
+                      {movimiento.tipo === 'abono' && !movimiento.anulado && (
+                        <button type="button" className="boton boton--pequeno boton--secundario"
+                          aria-label={`Anular el abono de ${formatearClp(movimiento.monto)}`}
+                          onClick={() => { setMensaje(''); setAnulando(movimiento); }}>
+                          Anular
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {abonando && (
+        <AbonoModal clienteId={clienteId} nombreCliente={nombreCliente} saldo={cliente.saldo}
+          onCerrar={() => setAbonando(false)}
+          onRegistrado={() => { setAbonando(false); alCambiarSaldo('Abono registrado'); }} />
+      )}
+
+      {anulando && (
+        <AnularAbonoModal clienteId={clienteId} nombreCliente={nombreCliente} abono={anulando}
+          onCerrar={() => setAnulando(null)}
+          onAnulado={(texto) => { setAnulando(null); alCambiarSaldo(texto); }} />
       )}
 
       {compraAbierta !== null && (
