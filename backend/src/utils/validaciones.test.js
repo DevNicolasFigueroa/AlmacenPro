@@ -172,6 +172,16 @@ test('terminar la venta permite ver el carrito, editarlo y buscar clientes y pro
   assert.equal(esRutaDeVentaEnCurso('POST', '/api/clientes'), true);
 });
 
+test('una cuenta desactivada no puede ver cuentas de clientes, abonar ni editar clientes (spec 004)', () => {
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/clientes'), false);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/clientes/5/cuenta'), false);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/clientes/5/compras/9'), false);
+  assert.equal(esRutaDeVentaEnCurso('POST', '/api/clientes/5/abonos'), false);
+  assert.equal(esRutaDeVentaEnCurso('POST', '/api/clientes/5/abonos/3/anular'), false);
+  assert.equal(esRutaDeVentaEnCurso('PATCH', '/api/clientes/5'), false);
+  assert.equal(esRutaDeVentaEnCurso('PATCH', '/api/clientes/5/rut'), false);
+});
+
 test('una cuenta desactivada no puede iniciar otra venta ni usar rutas de gestión (spec 003)', () => {
   assert.equal(esRutaDeVentaEnCurso('POST', '/api/ventas/iniciar'), false);
   assert.equal(esRutaDeVentaEnCurso('GET', '/api/ventas'), false);
