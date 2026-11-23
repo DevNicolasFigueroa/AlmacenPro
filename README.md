@@ -68,6 +68,7 @@ mysql -u root -p almacenpro < database/migration_001_autenticacion.sql
 mysql -u root -p almacenpro < database/migration_002_spec001.sql
 mysql -u root -p almacenpro < database/migration_003_spec002.sql
 mysql -u root -p almacenpro < database/migration_004_spec003.sql
+mysql -u root -p almacenpro < database/migration_005_spec004.sql
 ```
 
 La migración 003 (productos e inventario) convierte el stock a decimales para vender por kilo, limita la
@@ -83,6 +84,13 @@ productos repetidos en una misma venta o cargos de fiado duplicados. Las ventas 
 eran cancelaciones manuales y pasan a `cancelada`; las `completada` sin productos (cierres de prueba de la
 spec 001) también pasan a `cancelada`. Haz un respaldo antes de ejecutarla.
 
+La migración 005 (clientes y fiado) exige tener aplicada antes la 004. Agrega al fiado el tipo
+`anulacion_abono`, el método de pago del abono y la referencia al abono anulado (un abono se anula una sola
+vez), impide los montos cero o negativos, crea la tabla `cambios_rut` (constancia de cada corrección de RUT)
+y hace que la vista `v_saldo_fiado` sume de nuevo los abonos anulados. Se detiene sin cambiar nada si hay
+movimientos de fiado con monto cero o negativo. No modifica ningún movimiento ni ningún saldo existente: los
+abonos anteriores quedan sin método de pago. Haz un respaldo antes de ejecutarla.
+
 ### 2. Backend
 
 ```bash
@@ -90,8 +98,8 @@ cd backend
 cp .env.example .env          # editar credenciales de MySQL y JWT_SECRET
 npm install
 node database/seed.js         # crea el administrador y muestra su código de recuperación
-npm test                      # reglas de negocio de las specs 001, 002 y 003 (sin base de datos)
-npm run test:integracion      # endpoints contra MySQL (crea y borra almacenpro_test, almacenpro_test_inventario y almacenpro_test_ventas)
+npm test                      # reglas de negocio de las specs 001 a 004 (sin base de datos)
+npm run test:integracion      # endpoints contra MySQL (crea y borra las bases almacenpro_test, almacenpro_test_inventario, almacenpro_test_ventas y almacenpro_test_clientes)
 npm run dev                   # API en http://localhost:4000
 ```
 
@@ -134,9 +142,25 @@ npm run dev                   # API en http://localhost:4000
 | GET | `/api/ventas?desde=&hasta=&estado=` | administrador | Historial (hoy por defecto) con resumen del período; solo las completadas suman |
 | GET | `/api/ventas/:id` | administrador | Detalle de una venta cerrada |
 | POST | `/api/ventas/:id/anular` | administrador | Anula una venta completada con motivo: devuelve el stock y descuenta el fiado |
-| GET | `/api/clientes/rut/:rut` | sesión | Cliente y saldo por RUT (el cajero solo ve identidad y saldo) |
+| GET | `/api/clientes/rut/:rut` | sesión | Cliente, contacto y saldo por RUT |
 | POST | `/api/clientes` | sesión | Registra un cliente con solo su RUT (nombre opcional); 409 si ya existe |
-| GET | `/api/clientes/:id/cuenta` | administrador | Cuenta del cliente: saldo, compras y fiados |
+
+### Clientes y fiado (spec 004)
+
+Cajero y administrador ven la cuenta de los clientes, registran abonos y mantienen sus datos. Solo el
+administrador anula abonos, ve el total por cobrar y el historial de cambios de RUT.
+
+| Método | Ruta | Acceso | Descripción |
+| ------ | ---- | ------ | ----------- |
+| GET | `/api/clientes?buscar=&estado=&orden=&pagina=` | sesión | Listado de 25 por página. `buscar`: RUT (con o sin puntos y guion, parcial) o nombre (sin importar mayúsculas ni tildes); `estado`: `deuda`, `a_favor` o `al_dia`; `orden`: `nombre` o `deuda`. El administrador recibe además `resumen` (clientes en deuda y total por cobrar, sin compensar saldos a favor) |
+| GET | `/api/clientes/:id/cuenta` | sesión | Cuenta: contacto, saldo, compras y movimientos (abonos con su método y marca de anulado). El administrador recibe además `cambios_rut` |
+| GET | `/api/clientes/:id/compras/:ventaId` | sesión | Detalle de una compra completada o anulada de ese cliente, sin costos; 404 si la venta es de otro cliente |
+| PATCH | `/api/clientes/:id` | sesión | Agrega, cambia o borra (con texto vacío) nombre, teléfono, correo y dirección |
+| PATCH | `/api/clientes/:id/rut` | sesión | Corrige el RUT. Sin `confirmar: true` responde 409 `CONFIRMACION_REQUERIDA` y no cambia nada; un RUT de otro cliente responde 409 `RUT_REPETIDO` (no se unen cuentas); cada cambio queda registrado |
+| POST | `/api/clientes/:id/abonos` | sesión | Registra un abono (`monto`, `metodo_pago`: efectivo, débito, crédito o transferencia, `observacion`). Si supera la deuda responde 409 `ABONO_SUPERA_DEUDA` con cuánto quedaría a favor, salvo que venga `confirmar_saldo_a_favor: true` |
+| POST | `/api/clientes/:id/abonos/:abonoId/anular` | administrador | Anula un abono con motivo (sin plazo): el abono queda visible, marcado como anulado, y su monto vuelve a la deuda |
+
+Los abonos no se editan ni se borran: no existen rutas para hacerlo.
 
 ### 3. Frontend
 
@@ -153,5 +177,5 @@ npm run dev                   # App en http://localhost:5173
 | Autenticación       | Spec 001, implementada | Login con JWT, roles administrador / cajero                       |
 | Productos           | Spec 002, implementada | Alta, edición y stock con soporte de código de barras             |
 | Ventas (POS)        | Spec 003, implementada | Registro de venta rápido con descuento automático de stock, historial y anulación |
-| Clientes y fiado    | Parcial | El cliente se identifica solo por su RUT y la venta al fiado deja su cargo; faltan abonos, listado y edición (spec 004, aprobada) |
+| Clientes y fiado    | Spec 004, implementada | Cuenta corriente por cliente, identificado solo por su RUT: listado con búsqueda, abonos, anulación de abonos, edición de datos y corrección del RUT |
 | Reportes básicos    | Pendiente | Ventas del día / período, productos con stock bajo, saldos de fiado |

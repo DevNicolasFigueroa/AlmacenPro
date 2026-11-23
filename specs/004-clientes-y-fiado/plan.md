@@ -1,6 +1,6 @@
 # Plan 004 - Clientes y fiado
 
-**Estado:** borrador (espera aprobación)
+**Estado:** aprobado
 
 ## Estado actual y enfoque
 

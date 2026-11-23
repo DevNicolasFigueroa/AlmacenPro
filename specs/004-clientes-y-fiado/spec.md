@@ -1,6 +1,6 @@
 # Spec 004 - Clientes y fiado
 
-**Estado:** aprobada
+**Estado:** implementada
 
 ## Contexto y objetivo
 
@@ -150,22 +150,22 @@ Por decisión del dueño, el Cajero es quien conversa con el cliente y debe pode
 
 ## Criterios de finalización
 
-- [ ] El Cajero y el Administrador abren la cuenta de un cliente y ven sus compras, sus movimientos de fiado, su saldo y si es deudor.
-- [ ] El Cajero abre el detalle de cada compra de un cliente (productos, cantidades, precios y subtotales), sin costos ni márgenes, y no puede abrir el de una venta que no sea de ese cliente ni anularla, ni por pantalla ni por acceso directo.
-- [ ] El listado de clientes se busca por RUT (con o sin puntos, completo o parcial) y por nombre, y se filtra por estado; con el filtro "en deuda" se ordena de mayor a menor deuda.
-- [ ] El Cajero registra un abono con monto y método, ve el saldo antes y después, y la deuda baja de inmediato.
-- [ ] Un abono mayor que la deuda avisa cuánto quedará a favor y exige confirmación.
-- [ ] Un abono registrado no se puede editar ni borrar; el Administrador lo anula con motivo y el monto vuelve a la deuda.
-- [ ] El Cajero no puede anular un abono, ni por pantalla ni por acceso directo.
-- [ ] La conciliación cargos − abonos − anulaciones de venta + anulaciones de abono = saldo se cumple para cada cliente tras cualquier combinación de ventas, abonos y anulaciones.
-- [ ] Si falla el registro de un abono, la cuenta queda exactamente como estaba.
-- [ ] El Cajero y el Administrador agregan o editan nombre, teléfono, correo y dirección de un cliente.
-- [ ] Un cambio de RUT válido conserva compras, fiados y saldo del cliente, pide confirmación y deja constancia de quién y cuándo.
-- [ ] Un RUT inválido se rechaza, y un RUT que ya pertenece a otro cliente se rechaza indicando quién es.
-- [ ] El Administrador ve el total por cobrar y el historial de cambios de RUT; el Cajero no los ve.
-- [ ] Desde la pantalla de venta se abre la cuenta del cliente sin perder el carrito.
-- [ ] Con 5.000 clientes, buscar, abrir una cuenta y registrar un abono responden en menos de 2 segundos.
-- [ ] Todos los montos están en CLP sin decimales y todos los textos en español.
+- [x] El Cajero y el Administrador abren la cuenta de un cliente y ven sus compras, sus movimientos de fiado, su saldo y si es deudor.
+- [x] El Cajero abre el detalle de cada compra de un cliente (productos, cantidades, precios y subtotales), sin costos ni márgenes, y no puede abrir el de una venta que no sea de ese cliente ni anularla, ni por pantalla ni por acceso directo.
+- [x] El listado de clientes se busca por RUT (con o sin puntos, completo o parcial) y por nombre, y se filtra por estado; con el filtro "en deuda" se ordena de mayor a menor deuda.
+- [x] El Cajero registra un abono con monto y método, ve el saldo antes y después, y la deuda baja de inmediato.
+- [x] Un abono mayor que la deuda avisa cuánto quedará a favor y exige confirmación.
+- [x] Un abono registrado no se puede editar ni borrar; el Administrador lo anula con motivo y el monto vuelve a la deuda.
+- [x] El Cajero no puede anular un abono, ni por pantalla ni por acceso directo.
+- [x] La conciliación cargos − abonos − anulaciones de venta + anulaciones de abono = saldo se cumple para cada cliente tras cualquier combinación de ventas, abonos y anulaciones.
+- [x] Si falla el registro de un abono, la cuenta queda exactamente como estaba.
+- [x] El Cajero y el Administrador agregan o editan nombre, teléfono, correo y dirección de un cliente.
+- [x] Un cambio de RUT válido conserva compras, fiados y saldo del cliente, pide confirmación y deja constancia de quién y cuándo.
+- [x] Un RUT inválido se rechaza, y un RUT que ya pertenece a otro cliente se rechaza indicando quién es.
+- [x] El Administrador ve el total por cobrar y el historial de cambios de RUT; el Cajero no los ve.
+- [x] Desde la pantalla de venta se abre la cuenta del cliente sin perder el carrito.
+- [x] Con 5.000 clientes, buscar, abrir una cuenta y registrar un abono responden en menos de 2 segundos.
+- [x] Todos los montos están en CLP sin decimales y todos los textos en español.
 
 ## Dudas abiertas
 

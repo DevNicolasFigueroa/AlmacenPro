@@ -94,6 +94,12 @@
   margin-left: 8px;
 }
 
+/* Separación entre las secciones de la cuenta (el subtítulo de página trae su propio margen) */
+
+.pagina-subtitulo.cuenta-seccion {
+  margin-top: 30px;
+}
+
 /* Acciones de la cuenta, abono y su confirmación */
 
 .cuenta-acciones {

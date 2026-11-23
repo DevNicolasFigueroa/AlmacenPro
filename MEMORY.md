@@ -37,11 +37,19 @@ y `AGENTS.md` antes de empezar cualquier tarea.
   integración (28 de esta spec) pasan contra MySQL real; checklist manual hecho en el navegador sobre una base
   de pruebas; con 5.000 productos, 5.000 clientes y 50.000 ventas lo más lento fue 714 ms (historial de un
   año completo; límite 2 s).
-- Clientes y fiado: la spec 004 está aprobada (rama `004-clientes-y-fiado`, sin código todavía): abonos,
-  anulación de abonos (solo administrador), listado y búsqueda de clientes, edición de datos y corrección
-  de RUT, con el Cajero viendo la cuenta completa. Reemplaza reglas de las specs 001 (RF-12, RF-13) y
-  003 (RF-19, RF-23, RF-24) y el principio 5 de la constitución, que se actualizan al implementarla.
-  Hasta entonces `GET /api/clientes` sigue con 501.
+- Clientes y fiado completo según `specs/004-clientes-y-fiado/` (rama `004-clientes-y-fiado`, 12 tareas con un
+  commit cada una): listado de 25 por página con búsqueda (RUT con o sin puntos y guion, parcial; nombre sin
+  importar mayúsculas ni tildes), filtro por estado y orden por nombre o deuda; total por cobrar solo para el
+  administrador; cuenta del cliente con compras (y su detalle sin costos), movimientos y contacto, visible para el
+  cajero; abonos generales (efectivo, débito, crédito o transferencia) con confirmación si superan la deuda
+  (queda saldo a favor); anulación de abonos solo por el administrador, con motivo y sin plazo (movimiento nuevo
+  `anulacion_abono`: el abono no se toca); edición de nombre, teléfono, correo y dirección; corrección del RUT con
+  confirmación y constancia en `cambios_rut` (visible solo para el administrador, sin fusionar cuentas); la cuenta
+  se abre desde el cobro de la venta sin perder el carrito. Reemplazó reglas de las specs 001 (RF-12, RF-13) y
+  003 (RF-19, RF-23, RF-24, RF-38) y el principio 5 de la constitución. Migración 005 creada (no aplicada en
+  `almacenpro`). 100 pruebas unitarias y 93 de integración (26 de esta spec) pasan contra MySQL real; checklist
+  manual hecho en el navegador sobre una base de pruebas; con 5.000 clientes, 50.000 ventas y 21.000 movimientos
+  de fiado lo más lento fue 179 ms (límite 2 s).
 - Pendiente de implementar: `reportes` (su controlador sigue con 501).
 
 ## 2. Decisiones clave (y por qué)
@@ -51,15 +59,23 @@ y `AGENTS.md` antes de empezar cualquier tarea.
   se apliquen juntas o no se apliquen.
 - **Separación estricta de capas (`routes → controllers → models`):** el SQL vive solo en
   los modelos; los controladores validan y responden; facilita auditoría de datos comerciales.
-- **Enfoque al comerciante chileno:** mensajes e interfaz 100% en español, RUT opcional
-  en la interfaz, el RUT chileno como único identificador del cliente y montos en CLP; el dueño lee los
-  errores sin ayuda técnica.
+- **Enfoque al comerciante chileno:** mensajes e interfaz 100% en español, el RUT chileno como único
+  identificador del cliente y montos en CLP; el dueño lee los errores sin ayuda técnica.
 - **Anulación de ventas incluida en el MVP:** los errores de caja son frecuentes en un almacén. Solo el administrador puede anular; la anulación revierte stock y fiado en una sola transacción.
 - **El RUT es el único identificador del cliente (spec 003):** se guarda sin puntos (`12345678-5`), es obligatorio
   y único; el nombre es opcional. Se pregunta en toda venta (opcional salvo en el fiado).
 - **Fiado sin límite de crédito:** se muestra el saldo y se destaca "en deuda", pero nunca se bloquea la venta.
 - **La anulación del fiado es un tipo propio (`anulacion`):** no se mezcla con los abonos (pagos reales).
-  Conciliación: cargos − abonos − anulaciones = saldo. Si el cliente ya había abonado, queda saldo a favor.
+  Conciliación: cargos − abonos − anulaciones de venta + anulaciones de abono = saldo. Si el cliente ya había
+  abonado, queda saldo a favor.
+- **Spec 004, el Cajero atiende al cliente:** por decisión del dueño, el cajero ve la cuenta completa (incluido el
+  detalle de cada compra del cliente), registra abonos y corrige datos y RUT. Solo el administrador anula abonos y
+  ventas y ve el total por cobrar y los cambios de RUT. Los abonos son generales (no se asignan a una venta) y
+  no hay límite de crédito ni desactivación de clientes.
+- **Una anulación de abono es un movimiento nuevo (`anulacion_abono`) con `UNIQUE (abono_anulado_id)`:** el abono
+  queda visible y marcado como anulado; el saldo siempre se deriva de los movimientos, nunca se guarda.
+- **Corregir un RUT cambia la columna del cliente:** compras, fiados y saldo cuelgan de `cliente_id`, así que no se
+  copia nada. Sin `confirmar: true` el servidor solo avisa; un RUT ya usado se rechaza (no hay fusión).
 - **`cancelada` no es `anulada`:** cancelada = no se concretó (a mano o por inactividad, queda con su carrito);
   anulada = una venta confirmada que el administrador corrigió. `ventas.fecha` es el momento de cierre.
 
@@ -80,6 +96,15 @@ y `AGENTS.md` antes de empezar cualquier tarea.
   pierde el foco.
 - Enter en el buscador debe consultar con lo que está escrito ahora, no con los resultados de la pausa
   anterior; si no, agrega el producto equivocado.
+- Las operaciones que cambian una cuenta de fiado (abono, anulación de abono, cambio de RUT) bloquean primero la
+  fila del cliente con `FOR UPDATE` y recalculan el saldo dentro de la transacción: la advertencia de saldo a favor
+  se decide con el saldo real, no con el que mostraba la pantalla. Verificado con abonos y anulaciones simultáneos.
+- El RUT se guarda con guion (`12345678-5`): para buscarlo sin guion se compara con `REPLACE(rut, '-', '')`.
+  La prueba de integración lo detectó; la prueba unitaria sola no.
+- Los modales se dibujan en el `<body>` (`createPortal`) y Escape cierra solo el de más arriba: la cuenta del
+  cliente se abre sobre el cobro de la venta. Con otra ventana encima, los atajos numéricos del cobro se ignoran.
+- En las pruebas de integración, los nombres de los datos de prueba no deben contener palabras que otra prueba
+  busque en las respuestas (por ejemplo "costo"): dos pruebas fallaron por eso.
 
 ## 4. Próximos pasos inmediatos
 
@@ -87,10 +112,12 @@ y `AGENTS.md` antes de empezar cualquier tarea.
 - [x] Escribir la especificación del módulo de ventas (spec 003). Cierra los criterios de la spec 002 que
       dependían del punto de venta (retirar de la venta y vender y ajustar a la vez).
 - [x] Implementar `ventas.controller.js` + `ventas.model.js` con transacción SQL (confirmar, anular, historial).
-- [ ] Aplicar la migración 004 en la base real `almacenpro` (con respaldo antes): `database/migration_004_spec003.sql`.
+- [ ] Aplicar las migraciones 004 y 005 en la base real `almacenpro`, en ese orden y con respaldo antes:
+      `database/migration_004_spec003.sql` y `database/migration_005_spec004.sql`.
 - [x] Escribir la especificación de clientes y fiado (spec 004, aprobada): abonos, corregir un RUT, agregar
       nombre y contacto, listado con búsqueda. Sin límite de crédito ni desactivar clientes (fuera de alcance).
-- [ ] Redactar `plan.md` y `tasks.md` de la spec 004 e implementarla.
+- [x] Redactar `plan.md` y `tasks.md` de la spec 004 e implementarla (12 tareas, T1 a T12).
+- [ ] Fusionar la rama `004-clientes-y-fiado` en `develop` (aún no hecho).
 - [ ] Escribir la especificación de reportes (ventas del día, ganancias, cierre de caja, stock bajo en el reporte).
 - [ ] Actualizar esta memoria al terminar cada sesión.
 - [x] Implementar ajuste manual de stock con motivo (merma, reposición, corrección); registrar el movimiento en la base de datos para auditoría.
