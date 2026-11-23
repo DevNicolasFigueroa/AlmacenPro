@@ -6,20 +6,23 @@ import { api, mensajeError } from '../services/api';
 import { useAutenticacion } from '../context/AutenticacionContext';
 import { AbonoModal } from './AbonoModal';
 import { AnularAbonoModal } from './AnularAbonoModal';
+import { CambiarRutModal } from './CambiarRutModal';
 import { DetalleVentaModal } from './DetalleVentaModal';
+import { EditarClienteModal } from './EditarClienteModal';
 import { EstadoSaldo } from './EstadoSaldo';
 import { EtiquetaEstadoVenta } from './EtiquetaEstadoVenta';
 import {
   NOMBRE_METODO_ABONO, NOMBRE_METODO_PAGO, NOMBRE_MOVIMIENTO_FIADO, formatearClp, formatearFechaHora,
 } from '../utils/formato';
-import type { CuentaCliente as Cuenta, EstadoCuenta, MovimientoFiado } from '../types';
+import type { ClienteCuenta, CuentaCliente as Cuenta, MovimientoFiado } from '../types';
 import '../styles/ventas.css';
 import '../styles/clientes.css';
 
 interface Props {
   clienteId: number;
-  // Se llama cuando el saldo cambia (abono o anulación), para que la pantalla de origen lo actualice.
-  onSaldoCambiado?: (saldo: number, estado: EstadoCuenta) => void;
+  // Se llama cuando el cliente cambia (abono, anulación, datos o RUT), con su estado ya actualizado,
+  // para que la pantalla de origen (por ejemplo la venta) muestre el saldo y el RUT al día.
+  onClienteActualizado?: (cliente: ClienteCuenta) => void;
 }
 
 // Cargo y anulación de abono suben la deuda (+); abono y anulación de venta la bajan (−).
@@ -43,7 +46,7 @@ function DetalleMovimiento({ movimiento }: { movimiento: MovimientoFiado }) {
   );
 }
 
-export function CuentaCliente({ clienteId, onSaldoCambiado }: Props) {
+export function CuentaCliente({ clienteId, onClienteActualizado }: Props) {
   const { usuario } = useAutenticacion();
   const [cuenta, setCuenta] = useState<Cuenta | null>(null);
   const [error, setError] = useState('');
@@ -51,6 +54,8 @@ export function CuentaCliente({ clienteId, onSaldoCambiado }: Props) {
   const [compraAbierta, setCompraAbierta] = useState<number | null>(null);
   const [abonando, setAbonando] = useState(false);
   const [anulando, setAnulando] = useState<MovimientoFiado | null>(null);
+  const [editando, setEditando] = useState(false);
+  const [corrigiendoRut, setCorrigiendoRut] = useState(false);
 
   // RF-19: solo el administrador anula abonos; el servidor también lo exige.
   const esAdministrador = usuario?.rol === 'administrador';
@@ -69,11 +74,12 @@ export function CuentaCliente({ clienteId, onSaldoCambiado }: Props) {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  // Tras un abono o una anulación se vuelve a leer la cuenta y se avisa a la pantalla de origen.
-  async function alCambiarSaldo(texto: string) {
+  // Tras un abono, una anulación o un cambio de datos o de RUT se vuelve a leer la cuenta y se avisa
+  // a la pantalla de origen.
+  async function alCambiar(texto: string) {
     setMensaje(texto);
     const actualizada = await cargar();
-    if (actualizada) onSaldoCambiado?.(actualizada.cliente.saldo, actualizada.cliente.estado);
+    if (actualizada) onClienteActualizado?.(actualizada.cliente);
   }
 
   if (error && !cuenta) return <p role="alert" className="alerta alerta--error">{error}</p>;
@@ -103,6 +109,14 @@ export function CuentaCliente({ clienteId, onSaldoCambiado }: Props) {
       <div className="cuenta-acciones">
         <button type="button" className="boton" onClick={() => { setMensaje(''); setAbonando(true); }}>
           Registrar abono
+        </button>
+        <button type="button" className="boton boton--secundario"
+          onClick={() => { setMensaje(''); setEditando(true); }}>
+          Editar datos
+        </button>
+        <button type="button" className="boton boton--secundario"
+          onClick={() => { setMensaje(''); setCorrigiendoRut(true); }}>
+          Corregir RUT
         </button>
       </div>
 
@@ -195,16 +209,54 @@ export function CuentaCliente({ clienteId, onSaldoCambiado }: Props) {
         </div>
       )}
 
+      {cuenta.cambios_rut && cuenta.cambios_rut.length > 0 && (
+        <>
+          <h3 className="pagina-subtitulo cuenta-seccion">Cambios de RUT</h3>
+          <div className="tabla-contenedor tabla-contenedor--libre">
+            <table className="tabla tabla-historial">
+              <thead>
+                <tr>
+                  <th>Fecha y hora</th>
+                  <th>RUT anterior</th>
+                  <th>RUT nuevo</th>
+                  <th>Lo corrigió</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cuenta.cambios_rut.map((cambio) => (
+                  <tr key={cambio.id}>
+                    <td className="celda-venta">{formatearFechaHora(cambio.creado_en)}</td>
+                    <td data-etiqueta="RUT anterior">{cambio.rut_anterior_formateado}</td>
+                    <td data-etiqueta="RUT nuevo">{cambio.rut_nuevo_formateado}</td>
+                    <td data-etiqueta="Lo corrigió">{cambio.usuario_nombre}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
       {abonando && (
         <AbonoModal clienteId={clienteId} nombreCliente={nombreCliente} saldo={cliente.saldo}
           onCerrar={() => setAbonando(false)}
-          onRegistrado={() => { setAbonando(false); alCambiarSaldo('Abono registrado'); }} />
+          onRegistrado={() => { setAbonando(false); alCambiar('Abono registrado'); }} />
       )}
 
       {anulando && (
         <AnularAbonoModal clienteId={clienteId} nombreCliente={nombreCliente} abono={anulando}
           onCerrar={() => setAnulando(null)}
-          onAnulado={(texto) => { setAnulando(null); alCambiarSaldo(texto); }} />
+          onAnulado={(texto) => { setAnulando(null); alCambiar(texto); }} />
+      )}
+
+      {editando && (
+        <EditarClienteModal cliente={cliente} onCerrar={() => setEditando(false)}
+          onGuardado={(texto) => { setEditando(false); alCambiar(texto); }} />
+      )}
+
+      {corrigiendoRut && (
+        <CambiarRutModal cliente={cliente} onCerrar={() => setCorrigiendoRut(false)}
+          onCambiado={(texto) => { setCorrigiendoRut(false); alCambiar(texto); }} />
       )}
 
       {compraAbierta !== null && (
