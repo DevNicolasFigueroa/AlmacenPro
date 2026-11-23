@@ -83,7 +83,8 @@ const CONDICION_POR_ESTADO = {
   al_dia: 'saldo_fiado = 0',
 };
 
-// RF-2: nombre parcial (la colación ignora mayúsculas y tildes) o RUT parcial sin puntos.
+// RF-2: nombre parcial (la colación ignora mayúsculas y tildes) o RUT parcial, con o sin puntos y
+// guion: se compara el RUT guardado ("12345678-5") sin su guion con lo escrito también sin guion.
 function armarFiltro({ buscar, estado }) {
   const condiciones = [];
   const parametros = {};
@@ -92,9 +93,10 @@ function armarFiltro({ buscar, estado }) {
   if (busqueda.texto !== '') {
     const porNombre = 'nombre LIKE :nombre';
     parametros.nombre = `%${escaparComodinesLike(busqueda.texto)}%`;
-    if (busqueda.rut) {
-      condiciones.push(`(${porNombre} OR rut LIKE :rut)`);
-      parametros.rut = `%${escaparComodinesLike(busqueda.rut)}%`;
+    const rutSinGuion = busqueda.rut?.replaceAll('-', '');
+    if (rutSinGuion) {
+      condiciones.push(`(${porNombre} OR REPLACE(rut, '-', '') LIKE :rut)`);
+      parametros.rut = `%${escaparComodinesLike(rutSinGuion)}%`;
     } else {
       condiciones.push(porNombre);
     }
