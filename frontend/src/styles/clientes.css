@@ -137,3 +137,13 @@
   margin-top: 2px;
   accent-color: var(--botella);
 }
+
+/* Cuenta del cliente abierta sobre otra pantalla (por ejemplo, la venta) */
+
+.ventana.ventana--ancha {
+  width: min(1040px, 100%);
+}
+
+.cliente-tarjeta .boton--pequeno:not(.boton--secundario) {
+  padding-inline: 14px;
+}

@@ -34,7 +34,7 @@ Las pruebas de integración y todo lo que toque MySQL usan una instancia real y 
 - [x] **T9. Construir la edición de datos y la corrección del RUT (≈35 min).** RF-20–25, RNF-5, RNF-7.
   Hecho cuando: `EditarClienteModal` permite agregar, cambiar o borrar nombre, teléfono, correo y dirección, con sus mensajes de validación; `CambiarRutModal` valida el RUT al escribir, avisa que todas las compras, los fiados y el saldo pasan al RUT nuevo, exige la confirmación y, si el RUT ya existe, indica quién lo tiene sin ofrecer fusionar; el administrador ve en la cuenta el historial de cambios de RUT (anterior, nuevo, quién y cuándo) y el cajero no; tras un cambio, la cuenta y el listado muestran el RUT nuevo con las mismas compras, fiados y saldo; `tsc --noEmit` y `vite build` pasan.
 
-- [ ] **T10. Abrir la cuenta del cliente desde la venta (≈30 min).** RF-8, RNF-1.
+- [x] **T10. Abrir la cuenta del cliente desde la venta (≈30 min).** RF-8, RNF-1.
   Hecho cuando: la tarjeta del cliente en `IdentificarCliente` ofrece "Ver cuenta" y abre la cuenta sobre la pantalla de cobro, sin perder el carrito, el método elegido ni lo escrito; el modal apilado funciona con teclado (foco y tecla Escape), o, si `Modal` no lo admite, se ajusta o la cuenta se muestra dentro del mismo panel; al cerrar, el saldo de la tarjeta se refresca; registrar un abono desde la venta cuenta como actividad de esa venta; un cajero desactivado con venta en curso no puede abrir la cuenta (muestra el mensaje) pero sí terminar su venta; `tsc --noEmit` y `vite build` pasan.
 
 - [ ] **T11. Escribir las pruebas de integración del módulo (≈45 min).** RF-1–27, RNF-3, RNF-4, RNF-5, RNF-7, RNF-8.

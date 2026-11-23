@@ -7,6 +7,7 @@ import { isAxiosError } from 'axios';
 import { api, mensajeError } from '../services/api';
 import { formatearClp } from '../utils/formato';
 import { esRutValido, formatearAlEscribir, formatearRut, normalizarRut } from '../utils/rut';
+import { CuentaClienteModal } from './CuentaClienteModal';
 import type { ClienteVenta } from '../types';
 import '../styles/ventas.css';
 
@@ -16,6 +17,8 @@ interface Props {
   onCliente: (cliente: ClienteVenta | null) => void;
   // Hay un RUT escrito que aún no se asoció (sin buscar o sin registrar): conviene no confirmar así.
   onPendiente?: (pendiente: boolean) => void;
+  // Se llama al abrir la cuenta del cliente y al cambiarla: cuenta como actividad de la venta.
+  onActividad?: () => void;
 }
 
 // RF-18: destaca si el cliente está en deuda o tiene saldo a favor, sin bloquear la venta.
@@ -29,7 +32,8 @@ function EstadoDeCuenta({ cliente }: { cliente: ClienteVenta }) {
   return <span className="chip chip--apagado">Sin deuda</span>;
 }
 
-export function IdentificarCliente({ obligatorio, cliente, onCliente, onPendiente }: Props) {
+export function IdentificarCliente({ obligatorio, cliente, onCliente, onPendiente, onActividad }: Props) {
+  const [verCuenta, setVerCuenta] = useState(false);
   const [texto, setTexto] = useState('');
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState('');
@@ -108,10 +112,18 @@ export function IdentificarCliente({ obligatorio, cliente, onCliente, onPendient
           {cliente.nombre && <span className="cliente-rut">{cliente.rut_formateado}</span>}
         </div>
         <EstadoDeCuenta cliente={cliente} />
+        <button type="button" className="boton boton--pequeno"
+          onClick={() => { onActividad?.(); setVerCuenta(true); }}>
+          Ver cuenta
+        </button>
         <button type="button" className="boton boton--pequeno boton--secundario"
           onClick={() => { onCliente(null); reiniciar(); }}>
           Cambiar
         </button>
+        {verCuenta && (
+          <CuentaClienteModal clienteId={cliente.id} onCerrar={() => setVerCuenta(false)}
+            onClienteActualizado={(actualizado) => { onCliente(actualizado); onActividad?.(); }} />
+        )}
       </div>
     );
   }

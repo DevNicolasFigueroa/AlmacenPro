@@ -59,6 +59,11 @@ export function PanelCobro({
         : true
   );
 
+  // Atender la cuenta del cliente cuenta como actividad: la venta no se cancela mientras tanto.
+  function registrarActividad() {
+    api.post(`/ventas/${ventaId}/actividad`).catch(() => { /* el aviso de inactividad lo revisa la pantalla */ });
+  }
+
   async function confirmar() {
     if (!puedeConfirmar) return;
     setEnviando(true);
@@ -92,6 +97,8 @@ export function PanelCobro({
   // un campo de texto, donde los números son parte de lo que se escribe, se usa Alt + número.
   useEffect(() => {
     function alPresionar(evento: KeyboardEvent) {
+      // Con otra ventana abierta encima (por ejemplo la cuenta del cliente) los números no cambian el método.
+      if (document.querySelectorAll('[role="dialog"]').length > 1) return;
       const destino = evento.target as HTMLElement;
       const escribiendo = destino.tagName === 'TEXTAREA'
         || (destino.tagName === 'INPUT' && (destino as HTMLInputElement).type !== 'radio');
@@ -156,7 +163,7 @@ export function PanelCobro({
       )}
 
       <IdentificarCliente obligatorio={metodo === 'fiado'} cliente={cliente} onCliente={setCliente}
-        onPendiente={setPendiente} />
+        onPendiente={setPendiente} onActividad={registrarActividad} />
       {pendiente && (
         <p className="ayuda ayuda--cliente" role="status">
           Busca el RUT para asociarlo a la venta, o bórralo para vender sin cliente.
