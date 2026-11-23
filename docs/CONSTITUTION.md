@@ -17,8 +17,8 @@ Los 6 principios siguientes son innegociables. Cada cambio debe poder verificars
    que dependa de ellos.
 
 5. **Los datos comerciales son sagrados.** El stock nunca queda negativo, el precio del detalle de venta queda
-   congelado al momento de la venta, y toda deuda de fiado queda registrada en `fiado_transacciones` (cargo, abono o anulación).
-   Verificable: `stock >= 0` en toda ejecución y conciliación: suma de cargos − abonos − anulaciones = saldo en `v_saldo_fiado`.
+   congelado al momento de la venta, y toda deuda de fiado queda registrada en `fiado_transacciones` (cargo, abono, anulación de venta o anulación de abono).
+   Verificable: `stock >= 0` en toda ejecución y conciliación: cargos − abonos − anulaciones de venta + anulaciones de abono = saldo en `v_saldo_fiado`.
 
 6. **100% en español, contexto chileno.** Código (identificadores), comentarios, mensajes de error e interfaz
    en español; montos en formato CLP y RUT chileno. Verificable: revisión de diff sin texto en inglés visible

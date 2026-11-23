@@ -8,7 +8,7 @@ El almacén de barrio vive de lo que pasa en el mesón. Hoy cada venta se anota 
 
 Este módulo resuelve cuatro problemas: **registrar cada venta de forma rápida y sin errores de cálculo**, **descontar el stock solo, en el mismo momento**, **dejar anotada la deuda cuando se vende al fiado** y **saber después qué se vendió, cuándo y quién lo hizo**, con una forma segura de corregir una venta mal hecha y con seguimiento de todo lo que ocurrió en el mesón, incluidas las ventas que no se concretaron. Los datos comerciales son sagrados: el stock nunca queda negativo, el precio de cada producto queda congelado al vender y toda deuda de fiado queda registrada.
 
-Depende de la spec 001 (quién vende y qué le está permitido; la venta en curso que protege la sesión y se cancela sola tras 15 minutos de inactividad) y de la spec 002 (catálogo, precios y stock; los movimientos de stock de tipo venta y anulación). Esta spec incluye el alta de clientes usando solo su RUT, que es su único identificador: todas las compras, fiados y consultas de un cliente se asocian a él. Sin un cliente registrado no se puede vender al fiado ni llevar su cuenta. El nombre es opcional: se puede anotar al registrar al cliente, pero nunca se exige. Corregir o agregar datos después, editar o desactivar clientes y registrar los abonos al fiado pertenecen a la spec de clientes y fiado.
+Depende de la spec 001 (quién vende y qué le está permitido; la venta en curso que protege la sesión y se cancela sola tras 15 minutos de inactividad) y de la spec 002 (catálogo, precios y stock; los movimientos de stock de tipo venta y anulación). Esta spec incluye el alta de clientes usando solo su RUT, que es su único identificador: todas las compras, fiados y consultas de un cliente se asocian a él. Sin un cliente registrado no se puede vender al fiado ni llevar su cuenta. El nombre es opcional: se puede anotar al registrar al cliente, pero nunca se exige. Corregir o agregar datos después, corregir el RUT y registrar los abonos al fiado pertenecen a la spec 004 (clientes y fiado); desactivar o eliminar clientes no tiene spec asignada.
 
 **Objetivo:** que el Cajero registre una venta completa en menos de 30 segundos, vea el stock actualizado al terminar y que el Administrador conozca de un vistazo qué se vendió en cualquier día y qué pasó con cada venta.
 
@@ -18,9 +18,9 @@ Depende de la spec 001 (quién vende y qué le está permitido; la venta en curs
 - Registra ventas al contado (efectivo, débito, crédito) y al fiado; busca productos, arma el carrito, cobra y confirma.
 - En cada venta, con cualquier método de pago, pregunta el RUT del cliente (dato opcional) para asociar la compra a su cuenta; si la persona no lo da, vende sin cliente asociado.
 - Registra clientes nuevos con solo su RUT, sin salir de la venta, y asocia la venta a clientes ya registrados.
-- Al vender ve el saldo pendiente del cliente que está atendiendo, sin poder modificarlo ni registrar abonos (spec 001, RF-13).
+- Al vender ve el saldo pendiente del cliente que está atendiendo. Los abonos y la cuenta completa del cliente los define la spec 004 (spec 001, RF-13).
 - Ve solo nombre, precio de venta, unidad y stock de los productos; nunca costos ni márgenes.
-- No ve el historial de ventas, la cuenta completa de los clientes ni el listado de deudas, y no puede anular ventas (spec 001, RF-11 y RF-12).
+- No ve el historial de ventas y no puede anular ventas (spec 001, RF-11 y RF-12). La cuenta completa de los clientes y el listado de deudas son visibles para él desde la spec 004.
 
 **Administrador (dueño)**
 - Todo lo que hace el Cajero, incluido registrar clientes.
@@ -90,15 +90,15 @@ Depende de la spec 001 (quién vende y qué le está permitido; la venta en curs
 - **RF-16.** CUANDO el método es débito o crédito, EL SISTEMA debe registrar solo el método de pago, sin conectarse a ningún terminal de pago ni pasarela.
 - **RF-17.** CUANDO el método es fiado, EL SISTEMA debe exigir identificar al cliente por su RUT, ya sea uno registrado o uno nuevo según RF-20, e impedir confirmar la venta fiada sin cliente; y debe mostrar su saldo pendiente.
 - **RF-18.** SI el cliente elegido tiene saldo pendiente, ENTONCES EL SISTEMA debe destacar que está en deuda y mostrar el monto, sin bloquear la venta: el fiado no tiene límite de crédito.
-- **RF-19.** EL SISTEMA debe impedir que el Cajero modifique el saldo de un cliente o registre abonos desde la venta.
+- **RF-19.** EL SISTEMA no debe modificar el saldo de un cliente desde el cobro de la venta, salvo el cargo de la propia venta al fiado. *(Actualizada por la spec 004: el Cajero registra abonos desde la cuenta del cliente, que puede abrir desde la venta.)*
 
 ### Clientes
 
 - **RF-20.** CUANDO el Cajero o el Administrador registra un cliente nuevo, EL SISTEMA debe exigir únicamente un RUT chileno válido (con su dígito verificador, formato 12.345.678-5), permitir anotar su nombre sin exigirlo, no pedir ningún otro dato, y dejar al cliente disponible de inmediato para la venta en curso.
 - **RF-21.** SI el RUT ingresado ya pertenece a un cliente registrado, ENTONCES EL SISTEMA debe impedir el registro, indicar quién es y ofrecer elegirlo.
 - **RF-22.** CUANDO se va a cobrar, con cualquier método de pago, EL SISTEMA debe preguntar por el RUT del cliente, de forma opcional salvo en el fiado: si el RUT pertenece a un cliente registrado, lo asocia a la venta; si no está registrado, lo registra con solo ese RUT según RF-20 y se lo asocia; y si la persona no quiere dar su RUT, completa la venta sin cliente asociado. EL SISTEMA debe permitir omitir la pregunta con una sola acción, para no retrasar el cobro.
-- **RF-23.** CUANDO el Administrador consulta un cliente, EL SISTEMA debe mostrar su cuenta, identificada por su RUT: saldo pendiente o a favor, sus compras (ventas completadas y anuladas asociadas a su RUT) y sus fiados, de la más reciente a la más antigua.
-- **RF-24.** EL SISTEMA debe impedir que el Cajero vea la cuenta completa de un cliente, sus compras o el listado de deudas de los clientes; solo ve el saldo del cliente que está atendiendo (spec 001, RF-12 y RF-13).
+- **RF-23.** CUANDO el Cajero o el Administrador consulta un cliente, EL SISTEMA debe mostrar su cuenta, identificada por su RUT: saldo pendiente o a favor, sus compras (ventas completadas y anuladas asociadas a su RUT) y sus fiados, de la más reciente a la más antigua. *(Actualizada por la spec 004: la cuenta, antes solo del Administrador, la ve también el Cajero.)*
+- **RF-24.** *(Reemplazada por la spec 004, RF-7 y RF-9: el Cajero ve la cuenta completa de un cliente, sus compras y el listado de clientes y deudas. Sigue sin ver el historial general de ventas ni costos.)*
 
 ### Confirmar la venta
 
@@ -118,7 +118,7 @@ Depende de la spec 001 (quién vende y qué le está permitido; la venta en curs
 - **RF-35.** EL SISTEMA debe permitir al Administrador consultar todas las ventas que ya no están en curso, es decir, completadas, anuladas y canceladas (por la persona o por inactividad), de la más reciente a la más antigua, con número, fecha y hora, cajero, método de pago, total y estado.
 - **RF-36.** EL SISTEMA debe permitir filtrar el historial por fecha, un día o un rango de desde a hasta, y mostrar por defecto las ventas de hoy.
 - **RF-37.** CUANDO se filtra el historial, EL SISTEMA debe mostrar la cantidad de ventas completadas y la suma de sus totales en el período, y por separado la cantidad de ventas anuladas y de canceladas; solo las completadas se suman.
-- **RF-38.** CUANDO el Administrador abre una venta completada o anulada, EL SISTEMA debe mostrar su detalle: productos, cantidades, precios congelados, subtotales, total, método de pago, cliente si lo hay, cajero y, si fue anulada, quién la anuló, cuándo y por qué.
+- **RF-38.** CUANDO el Administrador abre una venta completada o anulada, EL SISTEMA debe mostrar su detalle: productos, cantidades, precios congelados, subtotales, total, método de pago, cliente si lo hay, cajero y, si fue anulada, quién la anuló, cuándo y por qué. *(Ampliada por la spec 004: el Cajero ve este mismo detalle, sin costos ni márgenes, solo de las compras de la cuenta de un cliente.)*
 - **RF-39.** CUANDO el Administrador abre una venta cancelada, EL SISTEMA debe mostrar quién la tenía, cuándo la inició y cuándo se canceló, si fue por la persona o por inactividad, y los productos que tenía el carrito, dejando claro que no afectó el stock ni la deuda.
 - **RF-40.** EL SISTEMA debe impedir que el Cajero acceda al historial de ventas, también por acceso directo (spec 001, RF-12).
 - **RF-41.** EL SISTEMA debe dejar en el historial de movimientos de cada producto la salida por venta y la devolución por anulación, con referencia a la venta (spec 002, RF-28).
@@ -214,7 +214,7 @@ Depende de la spec 001 (quién vende y qué le está permitido; la venta en curs
 - [x] El Administrador anula una venta con motivo obligatorio: el stock vuelve, el saldo del cliente baja y la venta queda marcada como anulada en el historial.
 - [x] Anular una venta fiada que ya tenía abonos deja el saldo a favor del cliente, sin errores.
 - [x] Una venta anulada no puede anularse otra vez ni sumarse a los totales.
-- [x] El Cajero no ve costos, márgenes, historial ni la cuenta completa de los clientes, y no puede anular ventas, ni por pantalla ni por acceso directo.
+- [x] El Cajero no ve costos, márgenes ni historial, y no puede anular ventas, ni por pantalla ni por acceso directo. *(La cuenta completa de los clientes dejó de estar vedada con la spec 004.)*
 - [x] Todos los montos están en CLP sin decimales y todos los textos en español.
 
 ## Dudas abiertas
