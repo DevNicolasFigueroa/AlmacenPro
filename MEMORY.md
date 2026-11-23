@@ -33,7 +33,7 @@ y `AGENTS.md` antes de empezar cualquier tarea.
   falta stock. Cliente identificado solo por su RUT (se guarda sin puntos; nombre opcional), registrado desde la
   propia venta. Historial con filtro por fecha (completadas, anuladas y canceladas; solo las completadas
   suman), detalle y anulación por el administrador con motivo (devuelve stock, descuenta el fiado y puede
-  dejar saldo a favor). Migración 004 creada (no aplicada en `almacenpro`). 76 pruebas unitarias y 65 de
+  dejar saldo a favor). Migración 004 aplicada en `almacenpro` (2026-11-23). 76 pruebas unitarias y 65 de
   integración (28 de esta spec) pasan contra MySQL real; checklist manual hecho en el navegador sobre una base
   de pruebas; con 5.000 productos, 5.000 clientes y 50.000 ventas lo más lento fue 714 ms (historial de un
   año completo; límite 2 s).
@@ -46,8 +46,8 @@ y `AGENTS.md` antes de empezar cualquier tarea.
   `anulacion_abono`: el abono no se toca); edición de nombre, teléfono, correo y dirección; corrección del RUT con
   confirmación y constancia en `cambios_rut` (visible solo para el administrador, sin fusionar cuentas); la cuenta
   se abre desde el cobro de la venta sin perder el carrito. Reemplazó reglas de las specs 001 (RF-12, RF-13) y
-  003 (RF-19, RF-23, RF-24, RF-38) y el principio 5 de la constitución. Migración 005 creada (no aplicada en
-  `almacenpro`). 100 pruebas unitarias y 93 de integración (26 de esta spec) pasan contra MySQL real; checklist
+  003 (RF-19, RF-23, RF-24, RF-38) y el principio 5 de la constitución. Migración 005 aplicada en
+  `almacenpro` (2026-11-23). 100 pruebas unitarias y 93 de integración (26 de esta spec) pasan contra MySQL real; checklist
   manual hecho en el navegador sobre una base de pruebas; con 5.000 clientes, 50.000 ventas y 21.000 movimientos
   de fiado lo más lento fue 179 ms (límite 2 s).
 - Pendiente de implementar: `reportes` (su controlador sigue con 501).
@@ -112,12 +112,15 @@ y `AGENTS.md` antes de empezar cualquier tarea.
 - [x] Escribir la especificación del módulo de ventas (spec 003). Cierra los criterios de la spec 002 que
       dependían del punto de venta (retirar de la venta y vender y ajustar a la vez).
 - [x] Implementar `ventas.controller.js` + `ventas.model.js` con transacción SQL (confirmar, anular, historial).
-- [ ] Aplicar las migraciones 004 y 005 en la base real `almacenpro`, en ese orden y con respaldo antes:
-      `database/migration_004_spec003.sql` y `database/migration_005_spec004.sql`.
+- [x] Aplicar las migraciones 004 y 005 en la base real `almacenpro` (2026-11-23, con respaldo previo fuera del
+      proyecto). La estructura de `almacenpro` quedó idéntica a `database/schema.sql` (columnas, reglas, índices,
+      claves foráneas y vista). Las 4 ventas `anulada`/`completada` sin productos pasaron a `cancelada`; no hubo
+      movimientos de fiado que migrar.
 - [x] Escribir la especificación de clientes y fiado (spec 004, aprobada): abonos, corregir un RUT, agregar
       nombre y contacto, listado con búsqueda. Sin límite de crédito ni desactivar clientes (fuera de alcance).
 - [x] Redactar `plan.md` y `tasks.md` de la spec 004 e implementarla (12 tareas, T1 a T12).
-- [ ] Fusionar la rama `004-clientes-y-fiado` en `develop` (aún no hecho).
+- [x] Fusionar la rama `004-clientes-y-fiado` en `develop` (avance rápido) y subir `develop` y la rama
+      `003-ventas-pos` a origin.
 - [ ] Escribir la especificación de reportes (ventas del día, ganancias, cierre de caja, stock bajo en el reporte).
 - [ ] Actualizar esta memoria al terminar cada sesión.
 - [x] Implementar ajuste manual de stock con motivo (merma, reposición, corrección); registrar el movimiento en la base de datos para auditoría.
