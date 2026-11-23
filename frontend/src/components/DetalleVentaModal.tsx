@@ -1,6 +1,8 @@
 // Detalle de una venta ya cerrada (spec 003, RF-38, RF-39): productos con su precio congelado,
 // total, método, cliente y cajero; en anuladas, quién, cuándo y por qué; en canceladas, la causa
-// y el carrito, dejando claro que no afectaron el stock ni la deuda. Solo administrador.
+// y el carrito, dejando claro que no afectaron el stock ni la deuda.
+// Desde el historial (solo administrador) lee /ventas/:id y ofrece anular; desde la cuenta de un
+// cliente (spec 004, RF-7, RF-9) lee el detalle de esa compra, que ven también los cajeros, sin anular.
 import { useCallback, useEffect, useState } from 'react';
 import { api, mensajeError } from '../services/api';
 import {
@@ -14,21 +16,28 @@ import '../styles/ventas.css';
 
 interface Props {
   ventaId: number;
+  // Ruta del detalle: por defecto la del historial; desde la cuenta de un cliente, la de sus compras.
+  rutaDetalle?: string;
+  // Solo el historial ofrece anular la venta; la cuenta de un cliente no.
+  puedeAnular?: boolean;
   // Se llama al anular, para que la pantalla de origen se actualice y muestre el aviso.
   onAnulada?: (mensaje: string) => void;
   onCerrar: () => void;
 }
 
-export function DetalleVentaModal({ ventaId, onAnulada, onCerrar }: Props) {
+export function DetalleVentaModal({
+  ventaId, rutaDetalle, puedeAnular = true, onAnulada, onCerrar,
+}: Props) {
   const [venta, setVenta] = useState<DetalleVentaCompleto | null>(null);
   const [error, setError] = useState('');
   const [anulando, setAnulando] = useState(false);
 
+  const ruta = rutaDetalle ?? `/ventas/${ventaId}`;
   const cargar = useCallback(() => {
-    api.get<DetalleVentaCompleto>(`/ventas/${ventaId}`)
+    api.get<DetalleVentaCompleto>(ruta)
       .then(({ data }) => setVenta(data))
       .catch((err) => setError(mensajeError(err)));
-  }, [ventaId]);
+  }, [ruta]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -119,7 +128,7 @@ export function DetalleVentaModal({ ventaId, onAnulada, onCerrar }: Props) {
           )}
 
           <div className="acciones">
-            {venta.estado === 'completada' && (
+            {puedeAnular && venta.estado === 'completada' && (
               <button type="button" className="boton boton--peligro" onClick={() => setAnulando(true)}>
                 Anular venta
               </button>

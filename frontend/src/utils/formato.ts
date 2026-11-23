@@ -66,3 +66,16 @@ export function diaLocal(fecha: Date) {
 export const NOMBRE_METODO_PAGO = {
   efectivo: 'Efectivo', debito: 'Débito', credito: 'Crédito', fiado: 'Fiado',
 } as const;
+
+// Cómo pagó el cliente un abono (spec 004, RF-10).
+export const NOMBRE_METODO_ABONO = {
+  efectivo: 'Efectivo', debito: 'Débito', credito: 'Crédito', transferencia: 'Transferencia',
+} as const;
+
+// Nombre de cada movimiento de la cuenta de fiado.
+export const NOMBRE_MOVIMIENTO_FIADO = {
+  cargo: 'Cargo por venta',
+  abono: 'Abono',
+  anulacion: 'Anulación de venta',
+  anulacion_abono: 'Anulación de abono',
+} as const;

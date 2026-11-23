@@ -7,6 +7,7 @@ import { VistaLogin } from './views/LoginView';
 import { VistaPuntoVenta } from './views/PuntoVentaView';
 import { VistaInventario } from './views/InventarioView';
 import { VistaClientes } from './views/ClientesView';
+import { VistaCuentaCliente } from './views/CuentaClienteView';
 import { VistaUsuarios } from './views/UsuariosView';
 import { VistaHistorialVentas } from './views/HistorialVentasView';
 import { VistaCambiarContrasena } from './views/CambiarContrasenaView';
@@ -45,9 +46,10 @@ export function App() {
           <div className="app-enlaces">
             <NavLink to="/ventas">Ventas</NavLink>
             <NavLink to="/inventario">Inventario</NavLink>
+            {/* Spec 004: el cajero también atiende a los clientes y anota sus abonos. */}
+            <NavLink to="/clientes">Clientes y fiado</NavLink>
             {usuario.rol === 'administrador' && (
               <>
-                <NavLink to="/clientes">Clientes y fiado</NavLink>
                 <NavLink to="/historial-ventas">Historial</NavLink>
                 <NavLink to="/usuarios">Cuentas</NavLink>
               </>
@@ -77,9 +79,8 @@ export function App() {
               <VistaInventario soloLectura={usuario?.rol === 'cajero'} />
             </RutaProtegida>
           } />
-          <Route path="/clientes" element={
-            <RutaProtegida rolesPermitidos={['administrador']}><VistaClientes /></RutaProtegida>
-          } />
+          <Route path="/clientes" element={<RutaProtegida><VistaClientes /></RutaProtegida>} />
+          <Route path="/clientes/:id" element={<RutaProtegida><VistaCuentaCliente /></RutaProtegida>} />
           <Route path="/historial-ventas" element={
             <RutaProtegida rolesPermitidos={['administrador']}><VistaHistorialVentas /></RutaProtegida>
           } />

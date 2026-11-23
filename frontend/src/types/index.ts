@@ -154,21 +154,78 @@ export interface CompraCliente {
   cajero_nombre: string;
 }
 
+// Cómo pagó el cliente un abono (spec 004, RF-10).
+export type MetodoAbono = 'efectivo' | 'debito' | 'credito' | 'transferencia';
+
+// Movimiento de la cuenta de fiado: cargo (venta al fiado), abono (pago), anulación de una venta
+// fiada y anulación de un abono. Los abonos traen su método y, si fueron anulados, cuándo, quién y por qué.
 export interface MovimientoFiado {
   id: number;
-  tipo: 'cargo' | 'abono' | 'anulacion';
+  tipo: 'cargo' | 'abono' | 'anulacion' | 'anulacion_abono';
   monto: number;
+  metodo_pago: MetodoAbono | null;
   venta_id: number | null;
+  abono_anulado_id: number | null;
   observacion: string | null;
   fecha: string;
   usuario_nombre: string;
+  anulado?: boolean;
+  anulado_en?: string | null;
+  motivo_anulacion?: string | null;
+  anulado_por_nombre?: string | null;
 }
 
-// Cuenta completa del cliente: solo la ve el administrador.
+// Cliente con su contacto, saldo y estado (spec 004, RF-7): lo ven el cajero y el administrador.
+export interface ClienteCuenta extends ClienteVenta {
+  telefono: string | null;
+  email: string | null;
+  direccion: string | null;
+  creado_en: string;
+}
+
+// Constancia de una corrección de RUT: solo la ve el administrador (spec 004, RF-25).
+export interface CambioRut {
+  id: number;
+  rut_anterior: string;
+  rut_nuevo: string;
+  rut_anterior_formateado: string;
+  rut_nuevo_formateado: string;
+  creado_en: string;
+  usuario_nombre: string;
+}
+
+// Cuenta completa del cliente: saldo, compras y movimientos para ambos roles; cambios_rut solo
+// llega al administrador.
 export interface CuentaCliente {
-  cliente: ClienteVenta & { telefono?: string | null; creado_en?: string };
+  cliente: ClienteCuenta;
   compras: CompraCliente[];
   movimientos: MovimientoFiado[];
+  cambios_rut?: CambioRut[];
+}
+
+// Fila del listado de clientes (spec 004, RF-1).
+export interface FilaCliente {
+  id: number;
+  rut: string;
+  rut_formateado: string;
+  nombre: string | null;
+  telefono: string | null;
+  saldo: number;
+  estado: EstadoCuenta;
+}
+
+// Solo lo recibe el administrador (spec 004, RF-6).
+export interface ResumenClientes {
+  clientes_en_deuda: number;
+  total_por_cobrar: number;
+}
+
+export interface ListadoClientes {
+  clientes: FilaCliente[];
+  total: number;
+  pagina: number;
+  por_pagina: number;
+  resumen?: ResumenClientes;
 }
 
 export type UnidadMedida = 'unidad' | 'kilo';
@@ -216,22 +273,6 @@ export interface MovimientoStock {
   creado_en: string;
   usuario_nombre: string;
   usuario: string;
-}
-
-export interface Cliente {
-  id: number;
-  rut: string | null;
-  nombre: string;
-  telefono: string | null;
-  limite_fiado: string;
-}
-
-export interface SaldoFiado {
-  cliente_id: number;
-  nombre: string;
-  telefono: string | null;
-  limite_fiado: string;
-  saldo_fiado: string;
 }
 
 // Producto que se puede vender: activo y sin costo (GET /productos/vendibles).
