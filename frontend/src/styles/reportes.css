@@ -140,3 +140,128 @@
 .chip.chip--costo {
   margin-left: 8px;
 }
+
+/* Productos */
+
+.reporte-rejilla--productos {
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+}
+
+.reporte-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 6px;
+}
+
+.reporte-cabecera .reporte-titulo {
+  margin: 0;
+}
+
+.campo.campo--chico {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.campo.campo--chico select {
+  padding: 6px 10px;
+}
+
+.posicion {
+  display: inline-block;
+  min-width: 1.6em;
+  margin-right: 8px;
+  color: var(--tinta-suave);
+  font-weight: 700;
+  text-align: right;
+}
+
+/* Cierres de caja */
+
+.reporte-tarjeta--ancha {
+  margin-bottom: 22px;
+}
+
+.barra-filtro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin: 8px 0 12px;
+}
+
+.barra-filtro .pagina-subtitulo {
+  margin: 0;
+}
+
+.tabla.tabla-cierres tbody tr.fila--falta td:first-child {
+  box-shadow: inset 5px 0 0 var(--sello);
+}
+
+.tabla.tabla-cierres tbody tr.fila--sobra td:first-child {
+  box-shadow: inset 5px 0 0 var(--letrero);
+}
+
+@media (max-width: 899px) {
+  .tabla.tabla-cierres tbody tr.fila--falta {
+    border-left: 6px solid var(--sello);
+  }
+
+  .tabla.tabla-cierres tbody tr.fila--sobra {
+    border-left: 6px solid var(--letrero);
+  }
+
+  .tabla.tabla-cierres tbody tr.fila--falta td:first-child,
+  .tabla.tabla-cierres tbody tr.fila--sobra td:first-child {
+    box-shadow: none;
+  }
+}
+
+.resultado-cierre {
+  display: grid;
+  gap: 2px;
+  margin: 0 0 16px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: var(--exito-suave);
+  color: #174d2f;
+}
+
+.resultado-cierre strong {
+  font-family: var(--display);
+  font-size: 2.2rem;
+  font-weight: 400;
+  line-height: 1.05;
+}
+
+.resultado-cierre--sobra {
+  background: var(--alerta-suave);
+  color: #6b4a00;
+}
+
+.resultado-cierre--falta {
+  background: var(--sello-suave);
+  color: #6e1d0c;
+}
+
+.reporte-rejilla--modal {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  margin-bottom: 16px;
+}
+
+.cuenta-efectivo {
+  margin-bottom: 16px;
+}
+
+.cobrado-lista .cobrado-total {
+  border-bottom: 2px solid var(--botella);
+}
+
+.cobrado-lista .cobrado-total dt,
+.cobrado-lista .cobrado-total dd {
+  color: var(--botella);
+  font-weight: 800;
+}

@@ -3,18 +3,22 @@
 // pantalla para cerrar el turno y nunca ve costos, márgenes ni ganancias.
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { ListaCierres } from '../components/ListaCierres';
 import { ReporteGananciasPeriodo } from '../components/ReporteGanancias';
+import { ReporteProductosPeriodo } from '../components/ReporteProductos';
 import { ReporteVentasPeriodo } from '../components/ReporteVentas';
 import { SelectorPeriodo } from '../components/SelectorPeriodo';
 import { periodoDeHoy, validarPeriodo, type Periodo } from '../utils/periodo';
 import '../styles/inventario.css';
 import '../styles/reportes.css';
 
-type Seccion = 'ventas' | 'ganancias';
+type Seccion = 'ventas' | 'ganancias' | 'productos' | 'cierres';
 
 const SECCIONES: { clave: Seccion; texto: string }[] = [
   { clave: 'ventas', texto: 'Ventas' },
   { clave: 'ganancias', texto: 'Ganancias' },
+  { clave: 'productos', texto: 'Productos' },
+  { clave: 'cierres', texto: 'Cierres de caja' },
 ];
 
 export function VistaReportes() {
@@ -55,6 +59,8 @@ export function VistaReportes() {
 
       {seccion === 'ventas' && <ReporteVentasPeriodo periodo={periodo} valido={errorPeriodo === null} />}
       {seccion === 'ganancias' && <ReporteGananciasPeriodo periodo={periodo} valido={errorPeriodo === null} />}
+      {seccion === 'productos' && <ReporteProductosPeriodo periodo={periodo} valido={errorPeriodo === null} />}
+      {seccion === 'cierres' && <ListaCierres periodo={periodo} valido={errorPeriodo === null} />}
     </section>
   );
 }
