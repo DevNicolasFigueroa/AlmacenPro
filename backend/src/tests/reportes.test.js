@@ -887,3 +887,128 @@ test('el costo no viaja en ninguna respuesta del cierre de caja del cajero (RF-3
     assert.equal(/costo|margen|ganancia/i.test(texto), false, `${nombre}: no hay campos de costo`);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Transversales: conciliación, idioma y montos, y nada sin implementar (RNF-3, RNF-5, RNF-6)
+// ---------------------------------------------------------------------------
+
+test('conciliación: el reporte, los cierres y la cuenta del cliente cuadran entre sí tras una mezcla de ventas, abonos y anulaciones (RNF-3)', async () => {
+  const unaCajera = await nuevoCajero();
+  const otroCajero = await nuevoCajero();
+  const cliente = await nuevoClienteDirecto();
+  const producto = await productoParaCierres();
+  const linea = (precio) => [{ producto, cantidad: 1, precio, costo: 600 }];
+  const dia = '2025-09-10';
+
+  await ventaDirecta({ usuario: unaCajera.id, fecha: `${dia} 09:00:00`, metodo: 'efectivo', lineas: linea(12000) });
+  await ventaDirecta({ usuario: unaCajera.id, fecha: `${dia} 10:00:00`, metodo: 'debito', lineas: linea(5000) });
+  const fiado1 = await ventaDirecta({ usuario: unaCajera.id, cliente, fecha: `${dia} 11:00:00`, metodo: 'fiado', lineas: linea(20000) });
+  await ventaDirecta({ usuario: otroCajero.id, fecha: `${dia} 12:00:00`, metodo: 'credito', lineas: linea(7000) });
+  const fiado2 = await ventaDirecta({ usuario: otroCajero.id, cliente, fecha: `${dia} 13:00:00`, metodo: 'fiado', lineas: linea(8000) });
+  // Cada venta al fiado deja su cargo en la cuenta del cliente, como al confirmarla
+  for (const [venta, usuario, hora] of [[fiado1, unaCajera.id, '11:00:00'], [fiado2, otroCajero.id, '13:00:00']]) {
+    await pool.query("INSERT INTO fiado_transacciones (cliente_id, venta_id, usuario_id, tipo, monto, fecha) VALUES (?, ?, ?, 'cargo', ?, ?)",
+      [cliente, venta.id, usuario, venta.total, `${dia} ${hora}`]);
+  }
+  await ventaDirecta({ usuario: otroCajero.id, fecha: `${dia} 14:00:00`, metodo: 'efectivo', lineas: linea(3000) });
+  await ventaDirecta({ usuario: otroCajero.id, fecha: `${dia} 15:00:00`, metodo: 'efectivo', estado: 'anulada', anuladaEn: `${dia} 16:00:00`, lineas: linea(9999) });
+  await abonoDirecto({ cliente, usuario: unaCajera.id, fecha: `${dia} 17:00:00`, monto: 6000, metodo: 'efectivo' });
+  await abonoDirecto({ cliente, usuario: otroCajero.id, fecha: `${dia} 17:30:00`, monto: 4000, metodo: 'transferencia' });
+  await abonoDirecto({ cliente, usuario: otroCajero.id, fecha: `${dia} 18:00:00`, monto: 1500, metodo: 'debito' });
+  await abonoDirecto({ cliente, usuario: unaCajera.id, fecha: `${dia} 18:30:00`, monto: 2222, metodo: 'efectivo', anulado: true });
+
+  const reporte = (await informe(`/reportes/ventas?desde=${dia}&hasta=${dia}`)).datos;
+  const cierres = [
+    (await cerrarTurno(unaCajera.token, { cierre_anterior_id: null, fondo_inicial: 0, efectivo_contado: 0 })).datos.cierre,
+    (await cerrarTurno(otroCajero.token, { cierre_anterior_id: null, fondo_inicial: 0, efectivo_contado: 0 })).datos.cierre,
+  ];
+  const suma = (campo) => cierres.reduce((s, c) => s + c[campo], 0);
+
+  // El reporte y los cierres cuentan lo mismo, método por método
+  assert.equal(reporte.vendido, 12000 + 5000 + 20000 + 7000 + 8000 + 3000);
+  assert.equal(suma('cantidad_ventas'), reporte.cantidad);
+  assert.equal(suma('ventas_efectivo'), reporte.por_metodo.efectivo.total);
+  assert.equal(suma('ventas_debito'), reporte.por_metodo.debito.total);
+  assert.equal(suma('ventas_credito'), reporte.por_metodo.credito.total);
+  assert.equal(suma('ventas_fiado'), reporte.por_metodo.fiado.total);
+  for (const metodo of ['efectivo', 'debito', 'credito', 'transferencia']) {
+    assert.equal(suma(`abonos_${metodo}`), reporte.cobrado.abonos[metodo], `abonos en ${metodo}`);
+  }
+  assert.equal(reporte.cobrado.abonos.efectivo, 6000, 'el abono anulado no cuenta');
+
+  // El desglose por método, por cajero y por día suma siempre el total
+  const total = (filas) => filas.reduce((s, f) => s + f.total, 0);
+  assert.equal(total(Object.values(reporte.por_metodo)), reporte.vendido);
+  assert.equal(total(reporte.por_cajero), reporte.vendido);
+  assert.equal(total(reporte.por_dia), reporte.vendido);
+  assert.equal(reporte.cobrado.total, reporte.cobrado.total_ventas + reporte.cobrado.total_abonos);
+
+  // La cuenta del cliente cuadra con lo vendido al fiado menos lo abonado (sin el abono anulado)
+  const cuenta = (await peticion(`/clientes/${cliente}/cuenta`)).datos;
+  assert.equal(cuenta.cliente.saldo, reporte.cobrado.vendido_al_fiado - reporte.cobrado.total_abonos);
+  assert.equal(cuenta.cliente.saldo, 28000 - 11500);
+
+  // El efectivo esperado de cada cierre se reconstruye con sus movimientos
+  for (const c of cierres) {
+    assert.equal(c.efectivo_esperado, c.fondo_inicial + c.ventas_efectivo + c.abonos_efectivo - c.efectivo_devuelto);
+    assert.equal(c.diferencia, c.efectivo_contado - c.efectivo_esperado);
+  }
+});
+
+test('los textos están en español y los montos son pesos enteros en los reportes y los cierres (RNF-5, RNF-6)', async () => {
+  const cajero = await nuevoCajero();
+  const mensajes = [
+    (await informe('/reportes/ventas?desde=2025-03-11&hasta=2025-03-10')).datos.mensaje,
+    (await informe('/reportes/ventas?desde=2024-01-01&hasta=2025-12-31')).datos.mensaje,
+    (await informe('/reportes/mas-vendidos?limite=0')).datos.mensaje,
+    (await informe('/reportes/ventas', cajero.token)).datos.mensaje,
+    (await cerrarTurno(cajero.token, { cierre_anterior_id: null, fondo_inicial: -5, efectivo_contado: 0 })).datos.mensaje,
+    (await cerrarTurno(cajero.token, { cierre_anterior_id: null, fondo_inicial: 0, efectivo_contado: 'mil' })).datos.mensaje,
+    (await cerrarTurno(cajero.token, { cierre_anterior_id: 999999, fondo_inicial: 0, efectivo_contado: 0 })).datos.mensaje,
+    (await peticion('/cierres-caja/999999', { token: cajero.token })).datos.mensaje,
+    (await peticion('/cierres-caja/sin-cerrar', { token: cajero.token })).datos.mensaje,
+  ];
+  for (const mensaje of mensajes) {
+    assert.ok(mensaje && !/\b(invalid|error|not found|required|forbidden|missing|unauthorized)\b/i.test(mensaje), `mensaje: ${mensaje}`);
+  }
+  assert.match(mensajes[0], /desde/);
+  assert.match(mensajes[1], /un año/);
+
+  // Los montos del período de prueba (con kilos y redondeos) son siempre pesos enteros
+  const ventas = (await informe('/reportes/ventas?desde=2025-03-10&hasta=2025-06-11')).datos;
+  const ganancias = (await informe('/reportes/ganancias?desde=2025-06-10&hasta=2025-06-10')).datos;
+  const enteros = [
+    ventas.vendido, ventas.promedio, ...Object.values(ventas.por_metodo).map((m) => m.total),
+    ...ventas.por_cajero.map((c) => c.total), ...ventas.por_dia.map((d) => d.total),
+    ventas.cobrado.total, ventas.cobrado.vendido_al_fiado, ventas.anuladas.total,
+    ganancias.vendido, ganancias.costo, ganancias.ganancia, ganancias.margen,
+    ...ganancias.productos.flatMap((p) => [p.vendido, p.costo, p.ganancia, p.margen]),
+  ];
+  assert.ok(enteros.length > 10 && enteros.every(Number.isInteger), 'todos los montos son enteros');
+
+  const cierre = (await cerrarTurno(cajero.token, { cierre_anterior_id: null, fondo_inicial: 1000, efectivo_contado: 1000 })).datos.cierre;
+  const montosCierre = ['fondo_inicial', 'efectivo_contado', 'efectivo_esperado', 'diferencia', 'efectivo_devuelto',
+    'ventas_efectivo', 'ventas_debito', 'ventas_credito', 'ventas_fiado', 'abonos_efectivo', 'abonos_debito',
+    'abonos_credito', 'abonos_transferencia'].map((campo) => cierre[campo]);
+  assert.ok(montosCierre.every(Number.isInteger));
+});
+
+test('ningún endpoint de reportes ni de cierres queda sin implementar: ninguno responde 501 (principio 4)', async () => {
+  const cajero = await nuevoCajero();
+  const rutasDelAdministrador = [
+    '/reportes/ventas', '/reportes/ganancias', '/reportes/mas-vendidos', '/reportes/por-reponer',
+    '/cierres-caja/turno', '/cierres-caja', '/cierres-caja/sin-cerrar',
+  ];
+  for (const ruta of rutasDelAdministrador) {
+    const r = await informe(ruta);
+    assert.equal(r.estado, 200, ruta);
+  }
+  for (const ruta of ['/cierres-caja/turno', '/cierres-caja']) {
+    assert.equal((await informe(ruta, cajero.token)).estado, 200, `cajero ${ruta}`);
+  }
+  // Y las rutas que no existen ya no responden 501
+  for (const ruta of ['/reportes/ventas-hoy', '/reportes', '/cierres-caja/otra']) {
+    const r = await informe(ruta);
+    assert.notEqual(r.estado, 501, ruta);
+  }
+});
