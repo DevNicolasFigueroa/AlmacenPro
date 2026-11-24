@@ -58,7 +58,7 @@ y `AGENTS.md` antes de empezar cualquier tarea.
   ciegas (la pantalla no muestra el esperado hasta confirmar), guardado en `cierres_caja` (solo se inserta; una
   anulación posterior no lo cambia y el efectivo devuelto se descuenta en el turno de quien anula, solo si lo
   anulado ya estaba en un cierre); el cajero cierra su turno y ve solo sus cierres, el administrador ve todos y los
-  turnos sin cerrar. Migración 006 creada (no aplicada en `almacenpro`). 126 pruebas unitarias y 127 de integración
+  turnos sin cerrar. Migración 006 aplicada en `almacenpro` (2026-11-24). 126 pruebas unitarias y 127 de integración
   (34 de esta spec) pasan contra MySQL real; checklist manual hecho en el navegador sobre una base de pruebas; con
   50.000 ventas, 5.000 productos y 20.000 movimientos de fiado lo más lento fue 255 ms (límite 2 s).
 - Pendiente de implementar: nada de las especificaciones aprobadas; faltan despliegue y las ideas fuera de alcance.
@@ -142,7 +142,9 @@ y `AGENTS.md` antes de empezar cualquier tarea.
 - [x] Fusionar la rama `004-clientes-y-fiado` en `develop` (avance rápido) y subir `develop` y la rama
       `003-ventas-pos` a origin.
 - [x] Escribir e implementar la especificación de reportes y cierre de caja (spec 005, 11 tareas).
-- [ ] Aplicar la migración 006 en `almacenpro` (con respaldo previo) y fusionar la rama `005-reportes` en `develop`.
+- [x] Aplicar la migración 006 en `almacenpro` (2026-11-24, con respaldo previo fuera del proyecto; la estructura quedó idéntica a
+      `database/schema.sql`, las líneas de venta anteriores quedaron con costo nulo y no hubo datos que migrar) y fusionar la
+      rama `005-reportes` en `develop` (avance rápido, subida a origin).
 - [ ] Actualizar esta memoria al terminar cada sesión.
 - [x] Implementar ajuste manual de stock con motivo (merma, reposición, corrección); registrar el movimiento en la base de datos para auditoría.
 - [x] Implementar alerta de stock bajo (mínimo configurable por producto) y mostrarla en el listado de productos. Falta mostrarla en el reporte del día (módulo de reportes).
