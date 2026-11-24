@@ -69,6 +69,7 @@ mysql -u root -p almacenpro < database/migration_002_spec001.sql
 mysql -u root -p almacenpro < database/migration_003_spec002.sql
 mysql -u root -p almacenpro < database/migration_004_spec003.sql
 mysql -u root -p almacenpro < database/migration_005_spec004.sql
+mysql -u root -p almacenpro < database/migration_006_spec005.sql
 ```
 
 La migración 003 (productos e inventario) convierte el stock a decimales para vender por kilo, limita la
@@ -91,6 +92,12 @@ y hace que la vista `v_saldo_fiado` sume de nuevo los abonos anulados. Se detien
 movimientos de fiado con monto cero o negativo. No modifica ningún movimiento ni ningún saldo existente: los
 abonos anteriores quedan sin método de pago. Haz un respaldo antes de ejecutarla.
 
+La migración 006 (reportes y cierre de caja) exige tener aplicada antes la 005. Agrega a cada línea de venta
+`costo_unitario` (el costo del producto congelado al confirmar la venta; queda **nulo en las ventas anteriores**,
+a las que no se les inventa un costo), crea la tabla `cierres_caja` (constancia de lo contado al cerrar el turno
+de una persona, con un índice único que impide cerrar dos veces el mismo turno) y agrega los índices que usan
+los reportes. No modifica ningún dato existente. Haz un respaldo antes de ejecutarla.
+
 ### 2. Backend
 
 ```bash
@@ -98,8 +105,8 @@ cd backend
 cp .env.example .env          # editar credenciales de MySQL y JWT_SECRET
 npm install
 node database/seed.js         # crea el administrador y muestra su código de recuperación
-npm test                      # reglas de negocio de las specs 001 a 004 (sin base de datos)
-npm run test:integracion      # endpoints contra MySQL (crea y borra las bases almacenpro_test, almacenpro_test_inventario, almacenpro_test_ventas y almacenpro_test_clientes)
+npm test                      # reglas de negocio de las specs 001 a 005 (sin base de datos)
+npm run test:integracion      # endpoints contra MySQL (crea y borra las bases almacenpro_test, almacenpro_test_inventario, almacenpro_test_ventas, almacenpro_test_clientes y almacenpro_test_reportes)
 npm run dev                   # API en http://localhost:4000
 ```
 
@@ -162,6 +169,28 @@ administrador anula abonos, ve el total por cobrar y el historial de cambios de 
 
 Los abonos no se editan ni se borran: no existen rutas para hacerlo.
 
+### Reportes y cierre de caja (spec 005)
+
+Los reportes son solo del administrador, también por acceso directo. El cierre de caja lo hace cada persona que
+atiende el mesón (cajero o administrador) con su propio turno: lo que vendió y cobró desde su cierre anterior.
+`desde` y `hasta` son fechas `AAAA-MM-DD` (hoy por defecto, hasta un año).
+
+| Método | Ruta | Acceso | Descripción |
+| ------ | ---- | ------ | ----------- |
+| GET | `/api/reportes/ventas?desde=&hasta=` | administrador | Vendido, cantidad y promedio; desglose por método, cajero y día; anuladas y canceladas aparte (no suman); vendido al fiado y cobrado (ventas en efectivo, débito y crédito más abonos, sin los anulados) |
+| GET | `/api/reportes/ganancias?desde=&hasta=` | administrador | Ventas, costo, ganancia y margen de las ventas con costo registrado, por producto (con aviso de costo $0); las ventas anteriores, sin costo, van aparte |
+| GET | `/api/reportes/mas-vendidos?desde=&hasta=&limite=` | administrador | Productos más vendidos por monto (10 por defecto, hasta 50), incluidos los desactivados |
+| GET | `/api/reportes/por-reponer` | administrador | Productos activos agotados o con stock bajo, los agotados primero |
+| GET | `/api/cierres-caja/turno` | sesión | Datos para cerrar: desde cuándo, cierre anterior, fondo sugerido y si hay una venta en curso. **Nunca** incluye el efectivo esperado (conteo a ciegas) |
+| POST | `/api/cierres-caja` | sesión | Cierra el turno: `cierre_anterior_id`, `fondo_inicial`, `efectivo_contado`, `observacion`. Responde 409 si el turno ya se cerró o hay una venta en curso, y devuelve el resultado (cuadra, sobra o falta) |
+| GET | `/api/cierres-caja?desde=&hasta=&usuario_id=` | sesión | Administrador: los cierres de todos (filtrables por persona). Cajero: solo los suyos. Sin fechas, los últimos 7 días |
+| GET | `/api/cierres-caja/sin-cerrar` | administrador | Personas con ventas o abonos desde su último cierre (incluidas las cuentas desactivadas) |
+| GET | `/api/cierres-caja/:id` | sesión | Detalle de un cierre; el cajero solo ve los suyos (404 para los demás) |
+
+Un cierre es una copia de lo contado: no se edita ni se borra, y una anulación posterior no lo cambia. El efectivo
+devuelto por anular una venta o un abono en efectivo se descuenta en el turno de quien anula, solo si lo anulado
+ya estaba en un cierre.
+
 ### 3. Frontend
 
 ```bash
@@ -178,4 +207,4 @@ npm run dev                   # App en http://localhost:5173
 | Productos           | Spec 002, implementada | Alta, edición y stock con soporte de código de barras             |
 | Ventas (POS)        | Spec 003, implementada | Registro de venta rápido con descuento automático de stock, historial y anulación |
 | Clientes y fiado    | Spec 004, implementada | Cuenta corriente por cliente, identificado solo por su RUT: listado con búsqueda, abonos, anulación de abonos, edición de datos y corrección del RUT |
-| Reportes básicos    | Pendiente | Ventas del día / período, productos con stock bajo, saldos de fiado |
+| Reportes y cierre de caja | Spec 005, implementada | Ventas por período, ganancias (con el costo congelado en cada venta), productos más vendidos y por reponer, y cierre de caja por turno con conteo de efectivo |

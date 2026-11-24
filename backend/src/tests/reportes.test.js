@@ -545,9 +545,9 @@ test('los reportes son solo del administrador: el cajero recibe 403 y sin sesió
 // Cierre de caja (RF-16 a RF-30)
 // ---------------------------------------------------------------------------
 
-// Fecha local 'AAAA-MM-DD HH:mm:ss' de hace "horas" horas, como las guarda la base.
+// Fecha local 'AAAA-MM-DD HH:mm:ss' de hace "horas" horas, como las guarda la base: redondeada al segundo más cercano.
 function hace(horas) {
-  const f = new Date(Date.now() - horas * 3600 * 1000);
+  const f = new Date(Math.round((Date.now() - horas * 3600 * 1000) / 1000) * 1000);
   const dos = (n) => String(n).padStart(2, '0');
   return `${f.getFullYear()}-${dos(f.getMonth() + 1)}-${dos(f.getDate())} ${dos(f.getHours())}:${dos(f.getMinutes())}:${dos(f.getSeconds())}`;
 }

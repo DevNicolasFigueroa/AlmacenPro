@@ -50,7 +50,18 @@ y `AGENTS.md` antes de empezar cualquier tarea.
   `almacenpro` (2026-11-23). 100 pruebas unitarias y 93 de integración (26 de esta spec) pasan contra MySQL real; checklist
   manual hecho en el navegador sobre una base de pruebas; con 5.000 clientes, 50.000 ventas y 21.000 movimientos
   de fiado lo más lento fue 179 ms (límite 2 s).
-- Pendiente de implementar: `reportes` (su controlador sigue con 501).
+- Reportes y cierre de caja completo según `specs/005-reportes/` (rama `005-reportes`, 11 tareas con un commit cada
+  una): el costo de cada producto queda congelado en cada línea al confirmar la venta (`detalle_ventas.costo_unitario`,
+  nulo en las ventas anteriores, que se informan aparte y no entran a la ganancia); reportes solo del administrador
+  (ventas por período con desglose por método, cajero y día, vendido contra cobrado, ganancias por producto, más
+  vendidos por monto y por reponer); cierre de caja de cada persona por turno, con fondo inicial y efectivo contado a
+  ciegas (la pantalla no muestra el esperado hasta confirmar), guardado en `cierres_caja` (solo se inserta; una
+  anulación posterior no lo cambia y el efectivo devuelto se descuenta en el turno de quien anula, solo si lo
+  anulado ya estaba en un cierre); el cajero cierra su turno y ve solo sus cierres, el administrador ve todos y los
+  turnos sin cerrar. Migración 006 creada (no aplicada en `almacenpro`). 126 pruebas unitarias y 127 de integración
+  (34 de esta spec) pasan contra MySQL real; checklist manual hecho en el navegador sobre una base de pruebas; con
+  50.000 ventas, 5.000 productos y 20.000 movimientos de fiado lo más lento fue 255 ms (límite 2 s).
+- Pendiente de implementar: nada de las especificaciones aprobadas; faltan despliegue y las ideas fuera de alcance.
 
 ## 2. Decisiones clave (y por qué)
 
@@ -103,6 +114,15 @@ y `AGENTS.md` antes de empezar cualquier tarea.
   La prueba de integración lo detectó; la prueba unitaria sola no.
 - Los modales se dibujan en el `<body>` (`createPortal`) y Escape cierra solo el de más arriba: la cuenta del
   cliente se abre sobre el cobro de la venta. Con otra ventana encima, los atajos numéricos del cobro se ignoran.
+- El cierre de caja compara fechas por segundo (las columnas guardan segundos enteros y MySQL redondea al más
+  cercano): `cerrar`, el turno y los turnos sin cerrar redondean la hora de corte de la misma manera (truncarla
+  mientras la anulación se guarda redondeada dio un fallo intermitente: una anulación a las :10,7 quedaba en :11 y un
+  cierre a las :11,8 en :11, y parecían simultáneos). Las pruebas separan por 1,1 s los hechos que dependen de su
+  orden y sus fechas se redondean igual; un movimiento y un cierre en el mismo segundo se leen como simultáneos.
+- Al sembrar datos de prueba con consultas recursivas, el cambio de hora de septiembre deja una hora local que no
+  existe y MySQL rechaza la fecha: las bases de rendimiento se siembran con la conexión en UTC (`SET time_zone`).
+- Los endpoints nuevos de lectura (`/reportes/*`, `/cierres-caja/*`) quedan fuera de la lista blanca de una cuenta
+  desactivada con venta en curso: solo puede terminar o cancelar su venta; su turno se ve como "sin cerrar".
 - En las pruebas de integración, los nombres de los datos de prueba no deben contener palabras que otra prueba
   busque en las respuestas (por ejemplo "costo"): dos pruebas fallaron por eso.
 
@@ -121,7 +141,8 @@ y `AGENTS.md` antes de empezar cualquier tarea.
 - [x] Redactar `plan.md` y `tasks.md` de la spec 004 e implementarla (12 tareas, T1 a T12).
 - [x] Fusionar la rama `004-clientes-y-fiado` en `develop` (avance rápido) y subir `develop` y la rama
       `003-ventas-pos` a origin.
-- [ ] Escribir la especificación de reportes (ventas del día, ganancias, cierre de caja, stock bajo en el reporte).
+- [x] Escribir e implementar la especificación de reportes y cierre de caja (spec 005, 11 tareas).
+- [ ] Aplicar la migración 006 en `almacenpro` (con respaldo previo) y fusionar la rama `005-reportes` en `develop`.
 - [ ] Actualizar esta memoria al terminar cada sesión.
 - [x] Implementar ajuste manual de stock con motivo (merma, reposición, corrección); registrar el movimiento en la base de datos para auditoría.
 - [x] Implementar alerta de stock bajo (mínimo configurable por producto) y mostrarla en el listado de productos. Falta mostrarla en el reporte del día (módulo de reportes).

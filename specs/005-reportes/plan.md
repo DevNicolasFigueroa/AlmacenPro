@@ -1,6 +1,6 @@
 # Plan 005 - Reportes y cierre de caja
 
-**Estado:** borrador (espera aprobación)
+**Estado:** aprobado
 
 ## Estado actual y enfoque
 

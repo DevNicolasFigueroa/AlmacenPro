@@ -1,6 +1,6 @@
 # Spec 005 - Reportes y cierre de caja
 
-**Estado:** aprobada
+**Estado:** implementada
 
 ## Contexto y objetivo
 
@@ -151,20 +151,20 @@ Por decisión del dueño, cada persona que atiende el mesón cierra su propio tu
 
 ## Criterios de finalización
 
-- [ ] Cada venta confirmada guarda el costo de sus productos en ese momento, y cambiar el costo de un producto después no cambia la ganancia de ventas pasadas.
-- [ ] El Administrador ve lo vendido, la cantidad de ventas, la venta promedio y el desglose por método, por cajero y por día de cualquier período, sin sumar anuladas ni canceladas.
-- [ ] Lo vendido al fiado y lo cobrado por abonos se muestran aparte, y los abonos anulados no cuentan como cobrados.
-- [ ] El Administrador ve ventas, costo, ganancia y margen del período y por producto; las ventas sin costo registrado se informan aparte y no entran al cálculo.
-- [ ] Los productos más vendidos y los productos por reponer se ven con sus cantidades y montos.
-- [ ] Cada persona cierra su turno declarando fondo inicial y efectivo contado, y ve su resultado (cuadra, sobra o falta) solo después de confirmar.
-- [ ] El efectivo esperado se calcula con el fondo inicial, las ventas en efectivo, los abonos en efectivo y las devoluciones por anulaciones del turno.
-- [ ] Un cierre no se puede editar ni borrar, y no se puede cerrar con una venta en curso ni dos veces el mismo turno.
-- [ ] Una anulación posterior no cambia un cierre hecho y se descuenta en el turno de quien la hizo.
-- [ ] El Administrador ve los cierres de todos con sus faltantes y sobrantes destacados, y los turnos sin cerrar.
-- [ ] El Cajero solo ve sus propios cierres, y no ve costos, márgenes, ganancias ni reportes, ni por pantalla ni por acceso directo.
-- [ ] Las cifras de todos los reportes y cierres son consistentes entre sí tras cualquier mezcla de ventas, abonos y anulaciones.
-- [ ] Con 50.000 ventas y 5.000 productos, cada reporte y la lista de cierres responden en menos de 2 segundos.
-- [ ] Todos los montos están en CLP sin decimales y todos los textos en español.
+- [x] Cada venta confirmada guarda el costo de sus productos en ese momento, y cambiar el costo de un producto después no cambia la ganancia de ventas pasadas.
+- [x] El Administrador ve lo vendido, la cantidad de ventas, la venta promedio y el desglose por método, por cajero y por día de cualquier período, sin sumar anuladas ni canceladas.
+- [x] Lo vendido al fiado y lo cobrado por abonos se muestran aparte, y los abonos anulados no cuentan como cobrados.
+- [x] El Administrador ve ventas, costo, ganancia y margen del período y por producto; las ventas sin costo registrado se informan aparte y no entran al cálculo.
+- [x] Los productos más vendidos y los productos por reponer se ven con sus cantidades y montos.
+- [x] Cada persona cierra su turno declarando fondo inicial y efectivo contado, y ve su resultado (cuadra, sobra o falta) solo después de confirmar.
+- [x] El efectivo esperado se calcula con el fondo inicial, las ventas en efectivo, los abonos en efectivo y las devoluciones por anulaciones del turno.
+- [x] Un cierre no se puede editar ni borrar, y no se puede cerrar con una venta en curso ni dos veces el mismo turno.
+- [x] Una anulación posterior no cambia un cierre hecho y se descuenta en el turno de quien la hizo.
+- [x] El Administrador ve los cierres de todos con sus faltantes y sobrantes destacados, y los turnos sin cerrar.
+- [x] El Cajero solo ve sus propios cierres, y no ve costos, márgenes, ganancias ni reportes, ni por pantalla ni por acceso directo.
+- [x] Las cifras de todos los reportes y cierres son consistentes entre sí tras cualquier mezcla de ventas, abonos y anulaciones.
+- [x] Con 50.000 ventas y 5.000 productos, cada reporte y la lista de cierres responden en menos de 2 segundos.
+- [x] Todos los montos están en CLP sin decimales y todos los textos en español.
 
 ## Dudas abiertas
 

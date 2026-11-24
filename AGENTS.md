@@ -31,7 +31,7 @@ actualizado y conocer la deuda de fiado de un vistazo.
 # Backend (desde backend/): requiere .env con credenciales MySQL y JWT_SECRET
 npm install
 npm run dev                     # API en http://localhost:4000
-npm test                        # reglas de negocio (specs 001 a 004), sin base de datos
+npm test                        # reglas de negocio (specs 001 a 005), sin base de datos
 npm run test:integracion        # endpoints contra MySQL real (crea y borra bases almacenpro_test*)
 
 # Base de datos (desde backend/, MySQL 8+)

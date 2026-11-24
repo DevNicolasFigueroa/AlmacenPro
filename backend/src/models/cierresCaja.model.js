@@ -12,6 +12,13 @@ function aNumero(valor) {
   return valor === null || valor === undefined ? valor : Number(valor);
 }
 
+// Las columnas de fecha guardan segundos enteros y MySQL redondea al segundo más cercano. Para que un cierre y
+// los movimientos que se comparan con él (ventas, abonos, anulaciones) se ordenen igual que como quedaron
+// guardados, la hora de corte se redondea de la misma manera.
+function aSegundoMasCercano(fecha) {
+  return new Date(Math.round(fecha.getTime() / 1000) * 1000);
+}
+
 const COLUMNAS_MONTOS = [
   'fondo_inicial', 'efectivo_contado', 'efectivo_esperado', 'diferencia', 'efectivo_devuelto',
   'ventas_efectivo', 'ventas_debito', 'ventas_credito', 'ventas_fiado',
@@ -132,7 +139,8 @@ async function hayVentaEnCurso(conexion, usuarioId) {
 
 // RF-17, RF-18: lo que la persona necesita para cerrar. Nunca incluye ventas, abonos ni el efectivo
 // esperado: el conteo es a ciegas hasta que confirma el cierre.
-export async function turnoActual(usuarioId, hasta) {
+export async function turnoActual(usuarioId, ahora) {
+  const hasta = aSegundoMasCercano(ahora);
   const anterior = await ultimoCierre(pool, usuarioId);
   return {
     desde: await primeraActividad(pool, usuarioId, anterior?.cerrado_en ?? null, hasta),
@@ -148,8 +156,7 @@ export async function turnoActual(usuarioId, hasta) {
 export async function cerrar({
   usuarioId, cierreAnteriorId, fondoInicial, efectivoContado, observacion, hoy,
 }) {
-  // Los segundos enteros evitan que el redondeo de la columna deje un movimiento fuera de su turno.
-  const hasta = new Date(Math.floor(hoy.getTime() / 1000) * 1000);
+  const hasta = aSegundoMasCercano(hoy);
   const conexion = await pool.getConnection();
   try {
     await conexion.beginTransaction();
@@ -253,7 +260,8 @@ export async function listar({ inicio, fin, usuarioId = null }) {
 
 // RF-27: personas con ventas o abonos desde su último cierre que todavía no cierran, incluidas las
 // cuentas desactivadas. Trae desde cuándo y cuánto efectivo han cobrado en ese tiempo.
-export async function turnosSinCerrar(hasta) {
+export async function turnosSinCerrar(ahora) {
+  const hasta = aSegundoMasCercano(ahora);
   const [usuarios] = await pool.query('SELECT id, nombre, usuario, activo FROM usuarios ORDER BY nombre');
   const resultado = [];
   for (const usuario of usuarios) {
