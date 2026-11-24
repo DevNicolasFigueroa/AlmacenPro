@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   armarResumenHistorial,
+  calcularCostoLinea,
   calcularSubtotal,
   calcularTotal,
   calcularVuelto,
@@ -24,6 +25,15 @@ test('el subtotal redondea al peso más cercano y el medio peso sube (RF-11)', (
   assert.equal(calcularSubtotal(1001, 0.5), 501); // 500,5 -> 501
   assert.equal(calcularSubtotal(1000, 0.4994), 499); // 499,4 -> 499
   assert.equal(calcularSubtotal(1000, 0.0004), 0);
+});
+
+test('el costo de una línea redondea igual que el subtotal: medio peso hacia arriba, kilos con 3 decimales (spec 005, RF-1, RF-10)', () => {
+  assert.equal(calcularCostoLinea(900, 1.35), 1215);
+  assert.equal(calcularCostoLinea(1001, 0.5), 501); // 500,5 -> 501
+  assert.equal(calcularCostoLinea(1000, 0.4994), 499);
+  assert.equal(calcularCostoLinea(0, 12), 0);
+  assert.equal(calcularCostoLinea(100000000, 9999.999), 999999900000);
+  assert.equal(calcularCostoLinea('1590.00', '0.350'), calcularSubtotal(1590, 0.35));
 });
 
 test('el subtotal no pierde exactitud con montos grandes ni con kilos exactos (RF-11)', () => {

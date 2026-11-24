@@ -182,6 +182,18 @@ test('una cuenta desactivada no puede ver cuentas de clientes, abonar ni editar 
   assert.equal(esRutaDeVentaEnCurso('PATCH', '/api/clientes/5/rut'), false);
 });
 
+test('una cuenta desactivada no puede ver reportes ni cerrar su turno de caja (spec 005)', () => {
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/reportes/ventas'), false);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/reportes/ganancias'), false);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/reportes/mas-vendidos'), false);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/reportes/por-reponer'), false);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/cierres-caja'), false);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/cierres-caja/turno'), false);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/cierres-caja/sin-cerrar'), false);
+  assert.equal(esRutaDeVentaEnCurso('GET', '/api/cierres-caja/7'), false);
+  assert.equal(esRutaDeVentaEnCurso('POST', '/api/cierres-caja'), false);
+});
+
 test('una cuenta desactivada no puede iniciar otra venta ni usar rutas de gestión (spec 003)', () => {
   assert.equal(esRutaDeVentaEnCurso('POST', '/api/ventas/iniciar'), false);
   assert.equal(esRutaDeVentaEnCurso('GET', '/api/ventas'), false);

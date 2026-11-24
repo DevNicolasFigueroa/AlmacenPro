@@ -33,6 +33,12 @@ export function calcularSubtotal(precio, cantidad) {
   return Number((pesos * milesimas + 500n) / 1000n);
 }
 
+// Spec 005, RF-1, RF-10: costo de una línea = costo congelado por cantidad, con la misma regla de
+// redondeo que el subtotal (el reporte de ganancias usa ROUND en SQL con el mismo resultado).
+export function calcularCostoLinea(costo, cantidad) {
+  return calcularSubtotal(costo, cantidad);
+}
+
 // RF-11, RF-12: el total es la suma de los subtotales ya redondeados de cada línea,
 // no el redondeo de la suma. Cada línea trae precio_unitario (congelado) y cantidad.
 export function calcularTotal(lineas) {
