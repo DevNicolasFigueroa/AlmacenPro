@@ -8,6 +8,7 @@ import { VistaPuntoVenta } from './views/PuntoVentaView';
 import { VistaInventario } from './views/InventarioView';
 import { VistaClientes } from './views/ClientesView';
 import { VistaCuentaCliente } from './views/CuentaClienteView';
+import { VistaReportes } from './views/ReportesView';
 import { VistaUsuarios } from './views/UsuariosView';
 import { VistaHistorialVentas } from './views/HistorialVentasView';
 import { VistaCambiarContrasena } from './views/CambiarContrasenaView';
@@ -51,6 +52,7 @@ export function App() {
             {usuario.rol === 'administrador' && (
               <>
                 <NavLink to="/historial-ventas">Historial</NavLink>
+                <NavLink to="/reportes">Reportes</NavLink>
                 <NavLink to="/usuarios">Cuentas</NavLink>
               </>
             )}
@@ -83,6 +85,9 @@ export function App() {
           <Route path="/clientes/:id" element={<RutaProtegida><VistaCuentaCliente /></RutaProtegida>} />
           <Route path="/historial-ventas" element={
             <RutaProtegida rolesPermitidos={['administrador']}><VistaHistorialVentas /></RutaProtegida>
+          } />
+          <Route path="/reportes" element={
+            <RutaProtegida rolesPermitidos={['administrador']}><VistaReportes /></RutaProtegida>
           } />
           <Route path="/usuarios" element={
             <RutaProtegida rolesPermitidos={['administrador']}><VistaUsuarios /></RutaProtegida>

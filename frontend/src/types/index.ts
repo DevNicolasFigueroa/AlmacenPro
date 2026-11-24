@@ -318,3 +318,148 @@ export interface RespuestaConfirmacion {
   cliente: { saldo: number; estado: EstadoCuenta } | null;
   productos: ProductoVendido[];
 }
+
+// ---------------------------------------------------------------------------
+// Reportes y cierre de caja (spec 005)
+// ---------------------------------------------------------------------------
+
+export interface DesgloseMetodo {
+  cantidad: number;
+  total: number;
+}
+
+// Lo vendido por período. Solo las completadas suman; las anuladas y canceladas van aparte.
+export interface ReporteVentas {
+  desde: string;
+  hasta: string;
+  vendido: number;
+  cantidad: number;
+  promedio: number;
+  por_metodo: Record<MetodoPago, DesgloseMetodo>;
+  anuladas: { cantidad: number; total: number };
+  canceladas: { cantidad: number };
+  por_cajero: { usuario_id: number; nombre: string; cantidad: number; total: number }[];
+  por_dia: { dia: string; cantidad: number; total: number }[];
+  // Lo cobrado: ventas en efectivo, débito y crédito más abonos. Lo vendido al fiado no es cobrado.
+  cobrado: {
+    ventas: { efectivo: number; debito: number; credito: number };
+    abonos: { efectivo: number; debito: number; credito: number; transferencia: number; sin_metodo?: number };
+    total_ventas: number;
+    total_abonos: number;
+    total: number;
+    vendido_al_fiado: number;
+  };
+}
+
+export interface GananciaProducto {
+  producto_id: number;
+  nombre: string;
+  unidad_medida: UnidadMedida;
+  cantidad: number;
+  vendido: number;
+  costo: number;
+  ganancia: number;
+  margen: number;
+  costo_cero: boolean; // alguna línea vendida tenía costo $0: la ganancia puede estar sobrestimada
+}
+
+export interface ReporteGanancias {
+  desde: string;
+  hasta: string;
+  vendido: number;
+  costo: number;
+  ganancia: number;
+  margen: number;
+  productos: GananciaProducto[];
+  total_productos: number;
+  productos_con_costo_cero: number;
+  // Ventas anteriores a la spec 005, sin costo registrado: no entran a la ganancia.
+  sin_costo: { cantidad: number; total: number };
+}
+
+export interface ProductoMasVendido {
+  producto_id: number;
+  nombre: string;
+  unidad_medida: UnidadMedida;
+  activo: boolean;
+  cantidad: number;
+  monto: number;
+}
+
+export interface ReporteMasVendidos {
+  desde: string;
+  hasta: string;
+  limite: number;
+  productos: ProductoMasVendido[];
+}
+
+export interface ProductoPorReponer {
+  id: number;
+  nombre: string;
+  unidad_medida: UnidadMedida;
+  stock: number;
+  stock_minimo: number;
+  estado: 'agotado' | 'bajo';
+}
+
+export interface ReportePorReponer {
+  productos: ProductoPorReponer[];
+  resumen: { agotados: number; stock_bajo: number };
+}
+
+// Datos para cerrar el turno. Nunca incluye lo esperado: el conteo es a ciegas hasta confirmar.
+export interface TurnoActual {
+  desde: string | null;
+  cierre_anterior_id: number | null;
+  fondo_sugerido: number | null;
+  venta_en_curso: boolean;
+}
+
+export type EstadoCierre = 'cuadra' | 'sobra' | 'falta';
+
+export interface CierreCaja {
+  id: number;
+  usuario_id: number;
+  usuario_nombre: string;
+  usuario_acceso: string;
+  cierre_anterior_id: number | null;
+  desde: string | null;
+  cerrado_en: string;
+  fondo_inicial: number;
+  efectivo_contado: number;
+  efectivo_esperado: number;
+  diferencia: number; // positiva sobra, negativa falta
+  efectivo_devuelto: number;
+  cantidad_ventas: number;
+  ventas_efectivo: number;
+  ventas_debito: number;
+  ventas_credito: number;
+  ventas_fiado: number;
+  abonos_efectivo: number;
+  abonos_debito: number;
+  abonos_credito: number;
+  abonos_transferencia: number;
+  observacion: string | null;
+  estado: EstadoCierre;
+}
+
+export interface RespuestaCierre {
+  mensaje: string;
+  cierre: CierreCaja;
+  resultado: { estado: EstadoCierre; diferencia: number; texto: string };
+}
+
+export interface RespuestaListaCierres {
+  desde: string;
+  hasta: string;
+  cierres: CierreCaja[];
+}
+
+export interface TurnoSinCerrar {
+  usuario_id: number;
+  nombre: string;
+  activo: boolean;
+  desde: string | null;
+  cantidad_ventas: number;
+  efectivo_cobrado: number;
+}

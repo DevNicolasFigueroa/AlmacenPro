@@ -1,0 +1,142 @@
+/* Reportes y cierre de caja (spec 005).
+   Se apoya en los colores y la tipografía del almacén definidos en app.css (botella, letrero, papel y
+   sello) y reutiliza la banda del historial (.caja-periodo), los segmentos y las tablas. Aquí solo va lo
+   propio de los reportes. */
+
+/* Secciones y período */
+
+.segmentos--secciones {
+  margin-bottom: 14px;
+}
+
+.segmento.segmento--seccion {
+  padding: 9px 20px;
+  font-size: 1.02rem;
+}
+
+.selector-periodo {
+  margin-bottom: 20px;
+}
+
+.selector-fechas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 220px));
+  gap: 0 16px;
+}
+
+@media (max-width: 520px) {
+  .selector-fechas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Un reporte que se vuelve a consultar se atenúa un instante, sin saltar */
+
+.reporte {
+  transition: opacity 0.15s ease;
+}
+
+.reporte--cargando {
+  opacity: 0.55;
+}
+
+/* Tarjetas con tablas y cifras */
+
+.reporte-rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  margin: 0 0 22px;
+}
+
+.reporte-tarjeta {
+  min-width: 0;
+  padding: 16px 18px 12px;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--papel);
+  overflow-x: auto;
+}
+
+.reporte-titulo {
+  margin: 0 0 10px;
+  color: var(--botella);
+  font-size: 1.05rem;
+}
+
+.tabla.tabla-reporte th,
+.tabla.tabla-reporte td {
+  padding: 9px 10px;
+}
+
+.tabla.tabla-reporte {
+  font-variant-numeric: tabular-nums;
+}
+
+.tabla.tabla-reporte td.numero,
+.tabla.tabla-reporte th.numero {
+  white-space: nowrap;
+}
+
+.tabla.tabla-reporte tfoot th {
+  border-top: 2px solid var(--botella);
+  border-bottom: 0;
+  background: transparent;
+}
+
+.reporte-cifra {
+  margin: 0 0 6px;
+  color: var(--botella);
+  font-family: var(--display);
+  font-size: 2.4rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.reporte-tarjeta--fiado {
+  border-left: 8px solid var(--letrero);
+  border-radius: 6px 14px 14px 6px;
+}
+
+.reporte-tarjeta--fiado .reporte-cifra {
+  color: var(--sello);
+}
+
+.cobrado-lista {
+  display: grid;
+  gap: 4px;
+  margin: 12px 0 6px;
+}
+
+.cobrado-lista div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--linea);
+}
+
+.cobrado-lista dt {
+  color: var(--tinta-suave);
+}
+
+.cobrado-lista dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ganancias */
+
+.ganancia--negativa {
+  color: var(--sello);
+}
+
+.caja-periodo .caja-vendido strong.ganancia--negativa {
+  color: #ff9a85;
+}
+
+.chip.chip--costo {
+  margin-left: 8px;
+}

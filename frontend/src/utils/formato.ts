@@ -79,3 +79,21 @@ export const NOMBRE_MOVIMIENTO_FIADO = {
   anulacion: 'Anulación de venta',
   anulacion_abono: 'Anulación de abono',
 } as const;
+
+// Porcentaje entero: 40 -> "40 %".
+export function formatearPorcentaje(valor: number) {
+  return `${Math.round(valor)} %`;
+}
+
+// 'AAAA-MM-DD' -> 'DD-MM-AAAA' para mostrar.
+export function formatearDia(texto: string) {
+  return texto.split('-').reverse().join('-');
+}
+
+// Cómo se lee la diferencia de un cierre de caja en el mesón (spec 005, RF-20).
+export function describirDiferencia(diferencia: number) {
+  if (diferencia === 0) return 'La caja cuadra';
+  return diferencia > 0 ? `Sobran ${formatearClp(diferencia)}` : `Faltan ${formatearClp(-diferencia)}`;
+}
+
+export const NOMBRE_ESTADO_CIERRE = { cuadra: 'Cuadra', sobra: 'Sobra', falta: 'Falta' } as const;
