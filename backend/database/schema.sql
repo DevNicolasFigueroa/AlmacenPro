@@ -114,6 +114,7 @@ CREATE INDEX idx_ventas_estado_fecha   ON ventas (estado, fecha);
 CREATE INDEX idx_ventas_cliente        ON ventas (cliente_id);
 CREATE INDEX idx_ventas_usuario_estado ON ventas (usuario_id, estado);
 CREATE INDEX idx_ventas_estado_actividad ON ventas (estado, ultima_actividad);
+CREATE INDEX idx_ventas_usuario_fecha  ON ventas (usuario_id, fecha);   -- turnos del cierre de caja (spec 005)
 
 -- ------------------------------------------------------------
 -- Detalle de ventas (una fila por producto vendido)
@@ -124,8 +125,10 @@ CREATE TABLE detalle_ventas (
   producto_id     INT UNSIGNED   NOT NULL,
   cantidad        DECIMAL(10,3)  NOT NULL,            -- kilos con hasta 3 decimales
   precio_unitario DECIMAL(11,2)  NOT NULL,            -- precio congelado al agregar el producto
+  costo_unitario  DECIMAL(11,2)  NULL,                -- costo congelado al confirmar la venta; nulo en el carrito y en las ventas anteriores a la spec 005
   subtotal        DECIMAL(11,2)  NOT NULL,            -- precio por cantidad, redondeado al peso
   CONSTRAINT uq_detalle_venta_producto UNIQUE (venta_id, producto_id), -- un producto, una línea
+  CONSTRAINT chk_detalle_costo_no_negativo CHECK (costo_unitario IS NULL OR costo_unitario >= 0),
   CONSTRAINT fk_detalle_venta
     FOREIGN KEY (venta_id) REFERENCES ventas (id)
     ON DELETE CASCADE,
@@ -195,6 +198,8 @@ CREATE TABLE fiado_transacciones (
 ) ENGINE = InnoDB;
 
 CREATE INDEX idx_fiado_cliente ON fiado_transacciones (cliente_id);
+CREATE INDEX idx_fiado_tipo_fecha ON fiado_transacciones (tipo, fecha);       -- abonos cobrados por período (spec 005)
+CREATE INDEX idx_fiado_usuario_fecha ON fiado_transacciones (usuario_id, fecha); -- turnos del cierre de caja (spec 005)
 
 -- ------------------------------------------------------------
 -- Cambios de RUT: constancia de quién corrigió el RUT de un cliente, cuándo y de cuál a cuál.
@@ -214,6 +219,48 @@ CREATE TABLE cambios_rut (
 ) ENGINE = InnoDB;
 
 CREATE INDEX idx_cambios_rut_cliente ON cambios_rut (cliente_id, creado_en);
+
+-- ------------------------------------------------------------
+-- Cierres de caja (spec 005): constancia de lo contado al cerrar el turno de una persona.
+-- Solo se inserta, nunca se modifica. Es una copia de lo calculado en ese momento: una anulación
+-- posterior no cambia un cierre ya hecho.
+-- ------------------------------------------------------------
+CREATE TABLE cierres_caja (
+  id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  usuario_id          INT UNSIGNED  NOT NULL,         -- persona que cierra su turno
+  cierre_anterior_id  INT UNSIGNED  NULL,             -- su cierre anterior; nulo en el primero
+  turno_clave         INT UNSIGNED AS (IFNULL(cierre_anterior_id, 0)) STORED, -- para el índice único (el nulo no choca)
+  desde               DATETIME      NULL,             -- inicio del turno; nulo si no hubo movimientos
+  cerrado_en          DATETIME      NOT NULL,
+  fondo_inicial       DECIMAL(11,2) NOT NULL,
+  efectivo_contado    DECIMAL(11,2) NOT NULL,
+  efectivo_esperado   DECIMAL(11,2) NOT NULL,         -- fondo + ventas y abonos en efectivo - efectivo devuelto
+  diferencia          DECIMAL(11,2) NOT NULL,         -- contado - esperado: positiva sobra, negativa falta
+  efectivo_devuelto   DECIMAL(11,2) NOT NULL DEFAULT 0, -- anulaciones hechas en el turno de algo ya cerrado
+  cantidad_ventas     INT UNSIGNED  NOT NULL DEFAULT 0,
+  ventas_efectivo     DECIMAL(11,2) NOT NULL DEFAULT 0,
+  ventas_debito       DECIMAL(11,2) NOT NULL DEFAULT 0,
+  ventas_credito      DECIMAL(11,2) NOT NULL DEFAULT 0,
+  ventas_fiado        DECIMAL(11,2) NOT NULL DEFAULT 0,
+  abonos_efectivo     DECIMAL(11,2) NOT NULL DEFAULT 0,
+  abonos_debito       DECIMAL(11,2) NOT NULL DEFAULT 0,
+  abonos_credito      DECIMAL(11,2) NOT NULL DEFAULT 0,
+  abonos_transferencia DECIMAL(11,2) NOT NULL DEFAULT 0,
+  observacion         VARCHAR(255)  NULL,
+  CONSTRAINT uq_cierre_turno UNIQUE (usuario_id, turno_clave), -- un turno se cierra una sola vez
+  CONSTRAINT chk_cierre_montos_no_negativos CHECK (
+    fondo_inicial >= 0 AND efectivo_contado >= 0 AND efectivo_devuelto >= 0
+    AND ventas_efectivo >= 0 AND ventas_debito >= 0 AND ventas_credito >= 0 AND ventas_fiado >= 0
+    AND abonos_efectivo >= 0 AND abonos_debito >= 0 AND abonos_credito >= 0 AND abonos_transferencia >= 0
+  ),
+  CONSTRAINT fk_cierres_usuario
+    FOREIGN KEY (usuario_id) REFERENCES usuarios (id),
+  CONSTRAINT fk_cierres_anterior
+    FOREIGN KEY (cierre_anterior_id) REFERENCES cierres_caja (id)
+) ENGINE = InnoDB;
+
+CREATE INDEX idx_cierres_usuario_fecha ON cierres_caja (usuario_id, cerrado_en);
+CREATE INDEX idx_cierres_fecha ON cierres_caja (cerrado_en);
 
 -- ------------------------------------------------------------
 -- Vista: saldo de fiado por cliente (consulta rápida "de un vistazo")
