@@ -540,3 +540,350 @@ test('los reportes son solo del administrador: el cajero recibe 403 y sin sesió
   // El endpoint provisorio del módulo ya no existe: no queda ningún 501
   assert.equal((await informe('/reportes/ventas-hoy')).estado, 404);
 });
+
+// ---------------------------------------------------------------------------
+// Cierre de caja (RF-16 a RF-30)
+// ---------------------------------------------------------------------------
+
+// Fecha local 'AAAA-MM-DD HH:mm:ss' de hace "horas" horas, como las guarda la base.
+function hace(horas) {
+  const f = new Date(Date.now() - horas * 3600 * 1000);
+  const dos = (n) => String(n).padStart(2, '0');
+  return `${f.getFullYear()}-${dos(f.getMonth() + 1)}-${dos(f.getDate())} ${dos(f.getHours())}:${dos(f.getMinutes())}:${dos(f.getSeconds())}`;
+}
+
+async function nuevoAdministrador() {
+  contador += 1;
+  const id = await usuariosModelo.crear({
+    nombre: `Administrador ${contador}`, usuario: `admin${contador}`, passwordHash: 'no-se-usa', rol: 'administrador',
+  });
+  return { id, token: emitirToken(await usuariosModelo.buscarPorId(id)) };
+}
+
+const turnoDe = (token) => peticion('/cierres-caja/turno', { token });
+const cerrarTurno = (token, cuerpo) => peticion('/cierres-caja', { metodo: 'POST', token, cuerpo });
+const esperar = (ms) => new Promise((resolver) => setTimeout(resolver, ms));
+
+async function productoParaCierres() {
+  return nuevoProducto({ precio: 1000, costo: 600, stock: 100000 });
+}
+
+test('el turno entrega desde cuándo, el cierre anterior y el fondo sugerido, pero nunca lo esperado (RF-17, RF-18)', async () => {
+  const cajero = await nuevoCajero();
+  const p = await productoParaCierres();
+  const vacio = (await turnoDe(cajero.token)).datos;
+  assert.deepEqual(vacio, { desde: null, cierre_anterior_id: null, fondo_sugerido: null, venta_en_curso: false });
+
+  await ventaDirecta({ usuario: cajero.id, fecha: hace(3), lineas: [{ producto: p, cantidad: 4, precio: 1000, costo: 600 }] });
+  const conActividad = (await turnoDe(cajero.token)).datos;
+  assert.deepEqual(Object.keys(conActividad).sort(), ['cierre_anterior_id', 'desde', 'fondo_sugerido', 'venta_en_curso']);
+  assert.ok(conActividad.desde, 'ya hay un inicio de turno');
+  assert.equal(/esperado|ventas|abonos|efectivo_cobrado|total/i.test(Object.keys(conActividad).join()), false);
+
+  const cierre = (await cerrarTurno(cajero.token, { cierre_anterior_id: null, fondo_inicial: 10000, efectivo_contado: 14000 })).datos.cierre;
+  const siguiente = (await turnoDe(cajero.token)).datos;
+  assert.deepEqual([siguiente.cierre_anterior_id, siguiente.fondo_sugerido, siguiente.desde], [cierre.id, 14000, null]);
+});
+
+test('cerrar el turno guarda todas las cifras y el esperado suma fondo, ventas y abonos en efectivo (RF-19, RF-20)', async () => {
+  const cajero = await nuevoCajero();
+  const p = await productoParaCierres();
+  const cliente = await nuevoClienteDirecto();
+  const linea = (precio) => [{ producto: p, cantidad: 1, precio, costo: 600 }];
+
+  await ventaDirecta({ usuario: cajero.id, fecha: hace(6), metodo: 'efectivo', lineas: linea(10000) });
+  await ventaDirecta({ usuario: cajero.id, fecha: hace(5), metodo: 'efectivo', lineas: linea(5000) });
+  await ventaDirecta({ usuario: cajero.id, fecha: hace(4), metodo: 'debito', lineas: linea(4000) });
+  await ventaDirecta({ usuario: cajero.id, fecha: hace(3), metodo: 'credito', lineas: linea(2500) });
+  await ventaDirecta({ usuario: cajero.id, cliente, fecha: hace(2), metodo: 'fiado', lineas: linea(8000) });
+  await ventaDirecta({ usuario: cajero.id, fecha: hace(1), estado: 'anulada', anuladaEn: hace(0.5), metodo: 'efectivo', lineas: linea(9999) });
+  await abonoDirecto({ cliente, usuario: cajero.id, fecha: hace(2), monto: 2000, metodo: 'efectivo' });
+  await abonoDirecto({ cliente, usuario: cajero.id, fecha: hace(2), monto: 3000, metodo: 'transferencia' });
+  await abonoDirecto({ cliente, usuario: cajero.id, fecha: hace(2), monto: 700, metodo: 'debito' });
+  await abonoDirecto({ cliente, usuario: cajero.id, fecha: hace(1), monto: 999, metodo: 'efectivo', anulado: true });
+
+  const r = await cerrarTurno(cajero.token, {
+    cierre_anterior_id: null, fondo_inicial: 20000, efectivo_contado: 37000, observacion: '  Cierre   de la tarde ',
+  });
+  assert.equal(r.estado, 201, JSON.stringify(r.datos));
+  const c = r.datos.cierre;
+  assert.deepEqual([r.datos.resultado.estado, r.datos.resultado.diferencia, r.datos.resultado.texto], ['cuadra', 0, 'La caja cuadra']);
+  assert.deepEqual([c.fondo_inicial, c.efectivo_contado, c.efectivo_esperado, c.diferencia, c.efectivo_devuelto],
+    [20000, 37000, 37000, 0, 0]); // 20.000 + 15.000 + 2.000
+  assert.deepEqual([c.ventas_efectivo, c.ventas_debito, c.ventas_credito, c.ventas_fiado, c.cantidad_ventas], [15000, 4000, 2500, 8000, 5]);
+  assert.deepEqual([c.abonos_efectivo, c.abonos_debito, c.abonos_credito, c.abonos_transferencia], [2000, 700, 0, 3000]);
+  assert.equal(c.observacion, 'Cierre de la tarde');
+  assert.equal(c.cierre_anterior_id, null);
+  assert.equal(c.usuario_id, cajero.id);
+  assert.ok(c.cerrado_en && c.desde);
+  assert.equal(c.desde.slice(0, 16), hace(6).slice(0, 16));
+});
+
+test('si el contado es mayor al esperado sobra y si es menor falta, y el cierre se guarda igual (RF-19, RF-20)', async () => {
+  const p = await productoParaCierres();
+  const sobra = await nuevoCajero();
+  const falta = await nuevoCajero();
+  for (const c of [sobra, falta]) {
+    await ventaDirecta({ usuario: c.id, fecha: hace(2), metodo: 'efectivo', lineas: [{ producto: p, cantidad: 1, precio: 20000, costo: 600 }] });
+  }
+
+  const s = (await cerrarTurno(sobra.token, { cierre_anterior_id: null, fondo_inicial: 10000, efectivo_contado: 31500 })).datos;
+  assert.deepEqual([s.resultado.estado, s.resultado.diferencia, s.resultado.texto, s.cierre.efectivo_esperado], ['sobra', 1500, 'Sobran $1.500', 30000]);
+  const f = (await cerrarTurno(falta.token, { cierre_anterior_id: null, fondo_inicial: 10000, efectivo_contado: 28000 })).datos;
+  assert.deepEqual([f.resultado.estado, f.resultado.diferencia, f.resultado.texto], ['falta', -2000, 'Faltan $2.000']);
+
+  const guardado = (await peticion(`/cierres-caja/${f.cierre.id}`)).datos;
+  assert.deepEqual([guardado.estado, guardado.diferencia], ['falta', -2000]);
+});
+
+test('montos inválidos, observación larga y cierre anterior inválido se rechazan sin cerrar nada (RF-17)', async () => {
+  const cajero = await nuevoCajero();
+  const valido = { cierre_anterior_id: null, fondo_inicial: 1000, efectivo_contado: 1000 };
+  const casos = [
+    [{ ...valido, fondo_inicial: undefined }, /fondo inicial/],
+    [{ ...valido, fondo_inicial: -1 }, /fondo inicial no puede ser negativo/],
+    [{ ...valido, fondo_inicial: 10.5 }, /pesos enteros/],
+    [{ ...valido, efectivo_contado: 'abc' }, /efectivo contado/],
+    [{ ...valido, efectivo_contado: -500 }, /no puede ser negativo/],
+    [{ ...valido, efectivo_contado: 1500.5 }, /pesos enteros/],
+    [{ ...valido, efectivo_contado: 100_000_000 }, /\$99\.999\.999/],
+    [{ ...valido, observacion: 'a'.repeat(256) }, /255/],
+    [{ ...valido, cierre_anterior_id: 'x' }, /cierre anterior/],
+    [{ ...valido, cierre_anterior_id: 0 }, /cierre anterior/],
+  ];
+  for (const [cuerpo, patron] of casos) {
+    const r = await cerrarTurno(cajero.token, cuerpo);
+    assert.equal(r.estado, 400, JSON.stringify(cuerpo));
+    assert.match(r.datos.mensaje, patron);
+  }
+  const [[n]] = await pool.query('SELECT COUNT(*) AS n FROM cierres_caja WHERE usuario_id = ?', [cajero.id]);
+  assert.equal(n.n, 0);
+  assert.equal((await cerrarTurno(null, valido)).estado, 401);
+});
+
+test('con una venta en curso no se puede cerrar el turno; al terminarla o cancelarla sí (RF-21)', async () => {
+  const cajero = await nuevoCajero();
+  const p = await productoParaCierres();
+  const ventaId = await armarVenta(cajero.token, [[p, 1]]);
+  assert.equal((await turnoDe(cajero.token)).datos.venta_en_curso, true);
+
+  const r = await cerrarTurno(cajero.token, { cierre_anterior_id: null, fondo_inicial: 0, efectivo_contado: 0 });
+  assert.deepEqual([r.estado, r.datos.codigo], [409, 'VENTA_EN_CURSO']);
+  assert.match(r.datos.mensaje, /venta en curso/);
+  const [[n]] = await pool.query('SELECT COUNT(*) AS n FROM cierres_caja WHERE usuario_id = ?', [cajero.id]);
+  assert.equal(n.n, 0);
+
+  assert.equal((await peticion(`/ventas/${ventaId}/cancelar`, { metodo: 'POST', token: cajero.token })).estado, 200);
+  assert.equal((await cerrarTurno(cajero.token, { cierre_anterior_id: null, fondo_inicial: 0, efectivo_contado: 0 })).estado, 201);
+});
+
+test('lo que se vende o cobra después de un cierre pertenece al turno siguiente (RF-22)', async () => {
+  const cajero = await nuevoCajero();
+  const p = await productoParaCierres();
+  await ventaDirecta({ usuario: cajero.id, fecha: hace(2), metodo: 'efectivo', lineas: [{ producto: p, cantidad: 1, precio: 6000, costo: 600 }] });
+  const primero = (await cerrarTurno(cajero.token, { cierre_anterior_id: null, fondo_inicial: 1000, efectivo_contado: 7000 })).datos.cierre;
+  assert.equal(primero.ventas_efectivo, 6000);
+
+  await esperar(1200);
+  await ventaDirecta({ usuario: cajero.id, fecha: hace(0), metodo: 'efectivo', lineas: [{ producto: p, cantidad: 1, precio: 2500, costo: 600 }] });
+  const segundo = (await cerrarTurno(cajero.token, { cierre_anterior_id: primero.id, fondo_inicial: 7000, efectivo_contado: 9500 })).datos.cierre;
+  assert.deepEqual([segundo.ventas_efectivo, segundo.cantidad_ventas, segundo.efectivo_esperado, segundo.diferencia], [2500, 1, 9500, 0]);
+  assert.equal(segundo.cierre_anterior_id, primero.id);
+
+  // El primer cierre no cambió
+  const releido = (await peticion(`/cierres-caja/${primero.id}`)).datos;
+  assert.deepEqual([releido.ventas_efectivo, releido.efectivo_esperado, releido.diferencia], [6000, 7000, 0]);
+});
+
+test('un cierre sin movimientos se permite y, encadenado, también otro inmediatamente después (caso límite)', async () => {
+  const cajero = await nuevoCajero();
+  const primero = (await cerrarTurno(cajero.token, { cierre_anterior_id: null, fondo_inicial: 15000, efectivo_contado: 15000 })).datos;
+  assert.deepEqual([primero.resultado.estado, primero.cierre.efectivo_esperado, primero.cierre.desde, primero.cierre.cantidad_ventas],
+    ['cuadra', 15000, null, 0]);
+  const segundo = await cerrarTurno(cajero.token, { cierre_anterior_id: primero.cierre.id, fondo_inicial: 15000, efectivo_contado: 14000 });
+  assert.equal(segundo.estado, 201);
+  assert.equal(segundo.datos.resultado.estado, 'falta');
+});
+
+test('dos cierres simultáneos de la misma persona: uno se registra y el otro recibe 409, también el primer cierre (RF-24, RNF-4)', async () => {
+  const cajero = await nuevoCajero();
+  const cuerpo = { cierre_anterior_id: null, fondo_inicial: 5000, efectivo_contado: 5000 };
+
+  const resultados = await Promise.all([cerrarTurno(cajero.token, cuerpo), cerrarTurno(cajero.token, cuerpo)]);
+  assert.deepEqual(resultados.map((r) => r.estado).sort(), [201, 409]);
+  const perdedor = resultados.find((r) => r.estado === 409);
+  assert.equal(perdedor.datos.codigo, 'TURNO_YA_CERRADO');
+  const [[n]] = await pool.query('SELECT COUNT(*) AS n FROM cierres_caja WHERE usuario_id = ?', [cajero.id]);
+  assert.equal(n.n, 1);
+
+  // Con el cierre anterior ya vencido (el que mandó la pantalla) también se rechaza
+  const viejo = await cerrarTurno(cajero.token, cuerpo);
+  assert.deepEqual([viejo.estado, viejo.datos.codigo], [409, 'TURNO_YA_CERRADO']);
+
+  // Y en un cierre encadenado: dos a la vez con el mismo cierre anterior
+  const ultimo = resultados.find((r) => r.estado === 201).datos.cierre;
+  const encadenados = await Promise.all([1, 2].map(() => cerrarTurno(cajero.token, { ...cuerpo, cierre_anterior_id: ultimo.id })));
+  assert.deepEqual(encadenados.map((r) => r.estado).sort(), [201, 409]);
+  const [[total]] = await pool.query('SELECT COUNT(*) AS n FROM cierres_caja WHERE usuario_id = ?', [cajero.id]);
+  assert.equal(total.n, 2);
+});
+
+test('anular después del cierre no lo cambia y el efectivo devuelto se descuenta en el turno de quien anula; anular antes no se descuenta dos veces (RF-23)', async () => {
+  const admin = await nuevoAdministrador();
+  const p = await nuevoCajero();
+  const q = await nuevoCajero();
+  const cliente = await nuevoClienteDirecto();
+  const producto = await productoParaCierres();
+  const linea = (precio) => [{ producto, cantidad: 1, precio, costo: 600 }];
+
+  const ventaP = await ventaDirecta({ usuario: p.id, fecha: hace(6), metodo: 'efectivo', lineas: linea(6000) });
+  const ventaQ = await ventaDirecta({ usuario: q.id, fecha: hace(5), metodo: 'efectivo', lineas: linea(4000) });
+  const abonoP = await abonoDirecto({ cliente, usuario: p.id, fecha: hace(4), monto: 2000, metodo: 'efectivo' });
+
+  // El administrador anula la venta de Q ANTES de que Q cierre: simplemente no suma el turno de Q
+  const anulacionQ = await peticion(`/ventas/${ventaQ.id}/anular`, { metodo: 'POST', token: admin.token, cuerpo: { motivo: 'Antes del cierre' } });
+  assert.equal(anulacionQ.estado, 200, JSON.stringify(anulacionQ.datos));
+  await esperar(1100); // los cierres y las anulaciones se comparan por segundo: se separan para que el orden sea inequívoco
+
+  const cierreP = (await cerrarTurno(p.token, { cierre_anterior_id: null, fondo_inicial: 0, efectivo_contado: 8000 })).datos.cierre;
+  assert.deepEqual([cierreP.efectivo_esperado, cierreP.diferencia], [8000, 0]); // 6.000 + 2.000
+  const cierreQ = (await cerrarTurno(q.token, { cierre_anterior_id: null, fondo_inicial: 500, efectivo_contado: 500 })).datos.cierre;
+  assert.deepEqual([cierreQ.ventas_efectivo, cierreQ.efectivo_esperado, cierreQ.diferencia], [0, 500, 0]);
+
+  await esperar(1100);
+  // Ahora sí: se anulan la venta y el abono de P, cuyo turno YA estaba cerrado
+  assert.equal((await peticion(`/ventas/${ventaP.id}/anular`, { metodo: 'POST', token: admin.token, cuerpo: { motivo: 'Después del cierre' } })).estado, 200);
+  const anulaAbono = await peticion(`/clientes/${cliente}/abonos/${abonoP}/anular`, { metodo: 'POST', token: admin.token, cuerpo: { motivo: 'Después del cierre' } });
+  assert.equal(anulaAbono.estado, 200, JSON.stringify(anulaAbono.datos));
+
+  await esperar(1100);
+  // Los cierres de P y de Q no cambian
+  for (const original of [cierreP, cierreQ]) {
+    const releido = (await peticion(`/cierres-caja/${original.id}`)).datos;
+    assert.deepEqual([releido.efectivo_esperado, releido.diferencia, releido.efectivo_devuelto, releido.ventas_efectivo],
+      [original.efectivo_esperado, original.diferencia, original.efectivo_devuelto, original.ventas_efectivo]);
+  }
+
+  // El turno del administrador descuenta solo lo devuelto de turnos ya cerrados: 6.000 + 2.000, no los 4.000 de Q
+  const cierreAdmin = (await cerrarTurno(admin.token, { cierre_anterior_id: null, fondo_inicial: 10000, efectivo_contado: 2000 })).datos.cierre;
+  assert.deepEqual([cierreAdmin.efectivo_devuelto, cierreAdmin.efectivo_esperado, cierreAdmin.diferencia], [8000, 2000, 0]);
+});
+
+test('el cajero ve solo sus cierres y el administrador los de todos, con filtro por persona y fecha (RF-25, RF-26)', async () => {
+  const admin = await nuevoAdministrador();
+  const uno = await nuevoCajero();
+  const dos = await nuevoCajero();
+  const c1 = (await cerrarTurno(uno.token, { cierre_anterior_id: null, fondo_inicial: 100, efectivo_contado: 100 })).datos.cierre;
+  const c2 = (await cerrarTurno(dos.token, { cierre_anterior_id: null, fondo_inicial: 200, efectivo_contado: 150 })).datos.cierre;
+
+  const deUno = (await peticion('/cierres-caja', { token: uno.token })).datos;
+  assert.deepEqual(deUno.cierres.map((c) => c.id), [c1.id]);
+  // Pedir los de otra persona no sirve: el cajero siempre recibe los suyos
+  const intento = (await peticion(`/cierres-caja?usuario_id=${dos.id}`, { token: uno.token })).datos;
+  assert.deepEqual(intento.cierres.map((c) => c.id), [c1.id]);
+
+  const todos = (await peticion('/cierres-caja', { token: admin.token })).datos.cierres.map((c) => c.id);
+  assert.ok(todos.includes(c1.id) && todos.includes(c2.id));
+  const filtrado = (await peticion(`/cierres-caja?usuario_id=${dos.id}`, { token: admin.token })).datos.cierres;
+  assert.deepEqual(filtrado.map((c) => [c.id, c.estado, c.usuario_nombre]), [[c2.id, 'falta', dos.id ? filtrado[0].usuario_nombre : '']]);
+  assert.match(filtrado[0].usuario_nombre, /^Cajero \d+$/);
+
+  // Por fecha: hoy sí; un día del pasado no
+  const pasado = (await peticion('/cierres-caja?desde=2020-01-01&hasta=2020-01-31', { token: admin.token })).datos;
+  assert.deepEqual(pasado.cierres, []);
+  assert.equal((await peticion('/cierres-caja?desde=2020-02-01&hasta=2020-01-01', { token: admin.token })).estado, 400);
+  assert.equal((await peticion('/cierres-caja?usuario_id=abc', { token: admin.token })).estado, 400);
+});
+
+test('el cajero solo abre el detalle de sus cierres: los ajenos y los inexistentes responden 404 (RF-25, RF-26)', async () => {
+  const uno = await nuevoCajero();
+  const dos = await nuevoCajero();
+  const ajeno = (await cerrarTurno(dos.token, { cierre_anterior_id: null, fondo_inicial: 1, efectivo_contado: 1 })).datos.cierre;
+  const propio = (await cerrarTurno(uno.token, { cierre_anterior_id: null, fondo_inicial: 1, efectivo_contado: 1 })).datos.cierre;
+
+  assert.equal((await peticion(`/cierres-caja/${propio.id}`, { token: uno.token })).estado, 200);
+  assert.equal((await peticion(`/cierres-caja/${ajeno.id}`, { token: uno.token })).estado, 404);
+  assert.equal((await peticion('/cierres-caja/999999', { token: uno.token })).estado, 404);
+  assert.equal((await peticion('/cierres-caja/abc', { token: uno.token })).estado, 404);
+  assert.equal((await peticion(`/cierres-caja/${ajeno.id}`)).estado, 200); // el administrador abre cualquiera
+  assert.equal((await peticion(`/cierres-caja/${propio.id}`, { token: null })).estado, 401);
+});
+
+test('un cierre no se edita ni se borra: no existen rutas para hacerlo (RF-22)', async () => {
+  const cajero = await nuevoCajero();
+  const cierre = (await cerrarTurno(cajero.token, { cierre_anterior_id: null, fondo_inicial: 1000, efectivo_contado: 1000 })).datos.cierre;
+  for (const metodo of ['PUT', 'PATCH', 'DELETE']) {
+    const r = await peticion(`/cierres-caja/${cierre.id}`, { metodo, cuerpo: metodo === 'DELETE' ? undefined : { efectivo_contado: 1 } });
+    assert.equal(r.estado, 404, metodo);
+  }
+  const [[fila]] = await pool.query('SELECT efectivo_contado FROM cierres_caja WHERE id = ?', [cierre.id]);
+  assert.equal(Number(fila.efectivo_contado), 1000);
+  // La base tampoco deja repetir un turno ni guardar montos negativos
+  await assert.rejects(pool.query(
+    `INSERT INTO cierres_caja (usuario_id, cierre_anterior_id, cerrado_en, fondo_inicial, efectivo_contado, efectivo_esperado, diferencia)
+     VALUES (?, NULL, NOW(), 1, 1, 1, 0)`, [cajero.id]
+  ));
+});
+
+test('turnos sin cerrar: el administrador ve quién tiene movimientos desde su último cierre, incluso una cuenta desactivada (RF-27)', async () => {
+  const admin = await nuevoAdministrador();
+  const activo = await nuevoCajero();
+  const desactivado = await nuevoCajero();
+  const p = await productoParaCierres();
+  const cliente = await nuevoClienteDirecto();
+
+  await ventaDirecta({ usuario: activo.id, fecha: hace(3), metodo: 'efectivo', lineas: [{ producto: p, cantidad: 1, precio: 6000, costo: 600 }] });
+  await ventaDirecta({ usuario: activo.id, fecha: hace(2), metodo: 'debito', lineas: [{ producto: p, cantidad: 1, precio: 9000, costo: 600 }] });
+  await abonoDirecto({ cliente, usuario: activo.id, fecha: hace(1), monto: 1500, metodo: 'efectivo' });
+  await ventaDirecta({ usuario: desactivado.id, fecha: hace(8), metodo: 'efectivo', lineas: [{ producto: p, cantidad: 1, precio: 2000, costo: 600 }] });
+  await pool.query('UPDATE usuarios SET activo = 0 WHERE id = ?', [desactivado.id]);
+
+  const lista = (await peticion('/cierres-caja/sin-cerrar', { token: admin.token })).datos.turnos;
+  const deActivo = lista.find((t) => t.usuario_id === activo.id);
+  assert.deepEqual([deActivo.cantidad_ventas, deActivo.efectivo_cobrado, deActivo.activo], [2, 7500, true]);
+  assert.equal(deActivo.desde.slice(0, 16), hace(3).slice(0, 16));
+  const dDesactivado = lista.find((t) => t.usuario_id === desactivado.id);
+  assert.deepEqual([dDesactivado.activo, dDesactivado.efectivo_cobrado], [false, 2000]);
+  assert.equal(lista.some((t) => t.usuario_id === admin.id), false, 'quien no tiene movimientos no aparece');
+
+  // Al cerrar su turno, deja de aparecer
+  assert.equal((await cerrarTurno(activo.token, { cierre_anterior_id: null, fondo_inicial: 0, efectivo_contado: 7500 })).estado, 201);
+  const despues = (await peticion('/cierres-caja/sin-cerrar', { token: admin.token })).datos.turnos;
+  assert.equal(despues.some((t) => t.usuario_id === activo.id), false);
+  assert.equal(despues.some((t) => t.usuario_id === desactivado.id), true);
+
+  // Es solo del administrador
+  assert.equal((await peticion('/cierres-caja/sin-cerrar', { token: activo.token })).estado, 403);
+});
+
+test('una cuenta desactivada con venta en curso no puede cerrar su turno ni ver cierres, pero el cierre ya hecho conserva su cuenta (RF-30)', async () => {
+  const cajero = await nuevoCajero();
+  const p = await productoParaCierres();
+  const cierre = (await cerrarTurno(cajero.token, { cierre_anterior_id: null, fondo_inicial: 100, efectivo_contado: 100 })).datos.cierre;
+  await armarVenta(cajero.token, [[p, 1]]);
+  await pool.query('UPDATE usuarios SET activo = 0 WHERE id = ?', [cajero.id]);
+
+  assert.equal((await turnoDe(cajero.token)).estado, 403);
+  assert.equal((await cerrarTurno(cajero.token, { cierre_anterior_id: cierre.id, fondo_inicial: 0, efectivo_contado: 0 })).estado, 403);
+  assert.equal((await peticion('/cierres-caja', { token: cajero.token })).estado, 403);
+
+  const conservado = (await peticion(`/cierres-caja/${cierre.id}`)).datos;
+  assert.match(conservado.usuario_nombre, /^Cajero \d+$/);
+  assert.equal(conservado.usuario_id, cajero.id);
+});
+
+test('el costo no viaja en ninguna respuesta del cierre de caja del cajero (RF-3, RNF-8)', async () => {
+  const cajero = await nuevoCajero();
+  const p = await nuevoProducto({ nombre: 'Producto del cierre privado', precio: 1000, costo: 888, stock: 100 });
+  await ventaDirecta({ usuario: cajero.id, fecha: hace(2), lineas: [{ producto: p, cantidad: 2, precio: 1000, costo: 888 }] });
+
+  const turno = await turnoDe(cajero.token);
+  const cierre = await cerrarTurno(cajero.token, { cierre_anterior_id: null, fondo_inicial: 0, efectivo_contado: 2000 });
+  const lista = await peticion('/cierres-caja', { token: cajero.token });
+  const detalle = await peticion(`/cierres-caja/${cierre.datos.cierre.id}`, { token: cajero.token });
+  for (const [nombre, respuesta] of [['turno', turno], ['cierre', cierre], ['lista', lista], ['detalle', detalle]]) {
+    const texto = JSON.stringify(respuesta.datos);
+    assert.equal(texto.includes('888'), false, `${nombre}: el valor del costo no viaja`);
+    assert.equal(/costo|margen|ganancia/i.test(texto), false, `${nombre}: no hay campos de costo`);
+  }
+});

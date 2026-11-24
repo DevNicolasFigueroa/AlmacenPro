@@ -7,6 +7,7 @@ import productosRutas from './routes/productos.routes.js';
 import ventasRutas from './routes/ventas.routes.js';
 import clientesRutas from './routes/clientes.routes.js';
 import reportesRutas from './routes/reportes.routes.js';
+import cierresCajaRutas from './routes/cierresCaja.routes.js';
 
 export const app = express();
 
@@ -25,6 +26,7 @@ app.use('/api/productos', productosRutas);
 app.use('/api/ventas', ventasRutas);
 app.use('/api/clientes', clientesRutas);
 app.use('/api/reportes', reportesRutas);
+app.use('/api/cierres-caja', cierresCajaRutas);
 
 // Manejo centralizado de errores: siempre al final de la cadena
 app.use(manejarErrores);

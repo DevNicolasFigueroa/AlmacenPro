@@ -172,7 +172,8 @@ El costo se lee y guarda en la transacción que confirma la venta: si falla algo
 ```text
 FUNCIÓN calcularTurno(conexion, usuarioId, hasta):
   anterior = último cierre de usuarioId (id y cerrado_en) o ninguno
-  desde = anterior ? anterior.cerrado_en : mínimo entre su primera venta y su primer abono (o ninguno)
+  // El turno es (cierre anterior, ahora]; "desde" es solo la primera venta o abono de ese tiempo (nulo si no hubo)
+  desde = primera venta o abono de la persona después de su cierre anterior (o desde siempre si nunca cerró)
 
   // Ventas confirmadas por la persona en (desde, hasta], por método
   ventas = SELECT metodo_pago, COUNT(*), SUM(total) FROM ventas
@@ -216,7 +217,7 @@ Si dos solicitudes llegan a la vez, el bloqueo de la fila de la persona las ejec
 ```text
 FUNCIÓN turnoActual(usuario):
   ultimo = último cierre de la persona
-  RESPONDER { desde: ultimo ? ultimo.cerrado_en : primera actividad, cierre_anterior_id: ultimo?.id ?? null,
+  RESPONDER { desde: primera venta o abono después de su último cierre (nulo si no hay), cierre_anterior_id: ultimo?.id ?? null,
               fondo_sugerido: ultimo?.efectivo_contado ?? null, venta_en_curso: existe venta en curso }
   // nunca se entregan ventas, abonos ni esperado: el conteo es a ciegas hasta confirmar
 ```
