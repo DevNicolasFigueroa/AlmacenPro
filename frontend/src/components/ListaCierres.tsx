@@ -2,6 +2,7 @@
 // de cierres de todas las personas, por período y por persona, con los faltantes y sobrantes a la vista. Un
 // clic abre el detalle de cada cierre.
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { DetalleCierreModal } from './DetalleCierreModal';
 import {
@@ -81,6 +82,10 @@ export function ListaCierres({ periodo, valido }: Props) {
           </table>
         )}
       </section>
+
+      <div className="acciones acciones--cierre">
+        <Link to="/cierre-caja" className="boton">Cerrar mi turno</Link>
+      </div>
 
       <div className="barra-filtro">
         <h3 className="pagina-subtitulo">Cierres de caja</h3>

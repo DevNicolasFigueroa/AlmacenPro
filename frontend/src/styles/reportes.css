@@ -247,6 +247,37 @@
   color: #6e1d0c;
 }
 
+.resultado-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+  margin: 10px 0 12px;
+}
+
+.resultado-resumen div {
+  display: grid;
+}
+
+.resultado-resumen dt {
+  font-size: 0.86rem;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.resultado-resumen dd {
+  margin: 0;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.formulario-cierre {
+  max-width: 560px;
+}
+
+.acciones.acciones--cierre {
+  margin: 0 0 12px;
+}
+
 .reporte-rejilla--modal {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   margin-bottom: 16px;

@@ -9,6 +9,7 @@ import { VistaInventario } from './views/InventarioView';
 import { VistaClientes } from './views/ClientesView';
 import { VistaCuentaCliente } from './views/CuentaClienteView';
 import { VistaReportes } from './views/ReportesView';
+import { VistaCierreCaja } from './views/CierreCajaView';
 import { VistaUsuarios } from './views/UsuariosView';
 import { VistaHistorialVentas } from './views/HistorialVentasView';
 import { VistaCambiarContrasena } from './views/CambiarContrasenaView';
@@ -49,6 +50,8 @@ export function App() {
             <NavLink to="/inventario">Inventario</NavLink>
             {/* Spec 004: el cajero también atiende a los clientes y anota sus abonos. */}
             <NavLink to="/clientes">Clientes y fiado</NavLink>
+            {/* Spec 005: el cajero cierra su propio turno; el administrador lo hace desde Reportes. */}
+            {usuario.rol === 'cajero' && <NavLink to="/cierre-caja">Cerrar turno</NavLink>}
             {usuario.rol === 'administrador' && (
               <>
                 <NavLink to="/historial-ventas">Historial</NavLink>
@@ -86,6 +89,7 @@ export function App() {
           <Route path="/historial-ventas" element={
             <RutaProtegida rolesPermitidos={['administrador']}><VistaHistorialVentas /></RutaProtegida>
           } />
+          <Route path="/cierre-caja" element={<RutaProtegida><VistaCierreCaja /></RutaProtegida>} />
           <Route path="/reportes" element={
             <RutaProtegida rolesPermitidos={['administrador']}><VistaReportes /></RutaProtegida>
           } />
