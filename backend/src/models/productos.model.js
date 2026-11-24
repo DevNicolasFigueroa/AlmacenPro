@@ -263,6 +263,19 @@ export async function bloquearPorIds(conexion, ids) {
   return filas.map(convertirNumeros);
 }
 
+// Spec 005, RF-1: lee el costo actual de los productos de una venta para congelarlo en cada línea.
+// Es una función aparte a propósito: bloquearPorIds no lee costos, para que no se acerquen a las
+// respuestas del cajero. Se llama dentro de la transacción de la venta, con las filas ya bloqueadas,
+// así que lee el mismo costo que tenía el producto al confirmar. Devuelve un Map id -> costo.
+export async function leerCostosPorIds(conexion, ids) {
+  if (ids.length === 0) return new Map();
+  const [filas] = await conexion.query(
+    'SELECT id, precio_costo FROM productos WHERE id IN (:ids)',
+    { ids }
+  );
+  return new Map(filas.map((fila) => [fila.id, aNumero(fila.precio_costo)]));
+}
+
 // RF-22–27, RF-30: ajuste manual de stock en UNA transacción.
 // SELECT ... FOR UPDATE bloquea la fila: dos ajustes simultáneos se ejecutan uno tras otro
 // y el segundo ve el stock ya descontado (RF-27, RNF-1). No exige que esté activo (RF-30).

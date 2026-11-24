@@ -429,11 +429,19 @@ export async function confirmar({
     }
 
     const porId = new Map(productos.map((producto) => [producto.id, producto]));
+    // Spec 005, RF-1: el costo de cada producto queda congelado en su línea al confirmar, igual que
+    // el precio: cambiarlo después no cambia lo ya vendido. Se lee con los productos ya bloqueados.
+    const costos = await productosModelo.leerCostosPorIds(conexion, lineas.map((linea) => linea.producto_id));
     const stockActualizado = [];
     for (const linea of lineas) {
       const producto = porId.get(linea.producto_id);
       const stockDespues = redondearCantidad(producto.stock - linea.cantidad);
 
+      await conexion.query(
+        `UPDATE detalle_ventas SET costo_unitario = :costo
+         WHERE venta_id = :ventaId AND producto_id = :productoId`,
+        { costo: costos.get(producto.id), ventaId, productoId: producto.id }
+      );
       await conexion.query(
         'UPDATE productos SET stock = :stockDespues WHERE id = :productoId',
         { stockDespues, productoId: producto.id }
