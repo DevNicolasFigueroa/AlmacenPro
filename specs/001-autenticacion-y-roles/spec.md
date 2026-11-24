@@ -21,7 +21,7 @@ Este es el primer módulo del sistema porque es la puerta de entrada de todos lo
 **Cajero (trabajador de caja)**
 - Su cuenta la crea el Administrador y recibe una contraseña temporal que debe cambiar en su primer ingreso.
 - Puede registrar ventas al contado y fiadas, y consultar el inventario y el stock.
-- No puede modificar productos, precios ni existencias; no ve costos de compra ni márgenes; no ve reportes, historial de ventas ni gestión de cuentas; no puede anular ventas. Ve la cuenta de fiado de los clientes, registra abonos y mantiene sus datos (spec 004).
+- No puede modificar productos, precios ni existencias; no ve costos de compra ni márgenes; no ve reportes, historial de ventas ni gestión de cuentas; no puede anular ventas. Ve la cuenta de fiado de los clientes, registra abonos y mantiene sus datos (spec 004). Cierra su propio turno de caja y ve sus propios cierres (spec 005).
 - No puede gestionar cuentas ni recuperar su contraseña por sí solo: si la olvida, el Administrador le genera una nueva.
 - *Nota: el acceso del Cajero al fiado (RF-13) lo definen las specs 003 y 004; esta última lo amplía a la cuenta completa, los abonos y los datos del cliente.*
 
@@ -57,7 +57,7 @@ Este es el primer módulo del sistema porque es la puerta de entrada de todos lo
 - **RF-9.** MIENTRAS la sesión esté vigente, EL SISTEMA debe permitir únicamente las funciones propias del rol de la cuenta.
 - **RF-10.** EL SISTEMA debe otorgar al Administrador acceso total a ventas, inventario, clientes y fiado, reportes, anulación de ventas y gestión de cuentas.
 - **RF-11.** EL SISTEMA debe permitir al Cajero registrar ventas al contado y fiadas, y consultar el inventario y el stock viendo solo el precio de venta y las existencias.
-- **RF-12.** EL SISTEMA debe impedir que el Cajero acceda a reportes, historial de ventas, gestión de cuentas, anulación de ventas, costos de compra y márgenes. *(Actualizada por la spec 004: el Cajero ya no tiene vedado el listado de clientes ni de deudas de fiado, y puede ver el detalle de las compras de un cliente desde su cuenta.)*
+- **RF-12.** EL SISTEMA debe impedir que el Cajero acceda a reportes, historial de ventas, gestión de cuentas, anulación de ventas, costos de compra y márgenes. *(Actualizada por la spec 004: el Cajero ya no tiene vedado el listado de clientes ni de deudas de fiado, y puede ver el detalle de las compras de un cliente desde su cuenta. Actualizada por la spec 005: el Cajero sigue sin acceder a los reportes, pero puede cerrar su propio turno de caja y ver el resultado de sus propios cierres, nunca los de otras personas, costos ni márgenes.)*
 - **RF-14.** SI un Cajero intenta acceder a una vista o ejecutar una acción reservada al Administrador, ENTONCES EL SISTEMA debe denegar la acción, mantenerlo en la pantalla donde estaba y mostrar un mensaje claro de permisos insuficientes.
 - **RF-15.** EL SISTEMA debe ocultar o deshabilitar en la interfaz las opciones que el rol no puede usar, y denegar igualmente el acceso cuando se intente por cualquier otra vía.
 - **RF-16.** SI no existe una sesión vigente, ENTONCES EL SISTEMA debe negar el acceso a cualquier función protegida y solicitar el ingreso.
@@ -151,7 +151,7 @@ Estos requisitos no forman parte del MVP. Se conservan con su numeración para i
 - [ ] Un Cajero no puede operar sin antes cambiar su contraseña temporal.
 - [ ] Credenciales inválidas no permiten el ingreso y el mensaje no revela si el usuario existe.
 - [ ] Cinco intentos fallidos bloquean la cuenta 15 minutos; al cumplirse el plazo el ingreso vuelve a estar disponible.
-- [ ] Un Cajero puede registrar una venta completa, pero no puede acceder a reportes, historial, gestión de cuentas, anulación ni costos, ni por menú ni por acceso directo.
+- [ ] Un Cajero puede registrar una venta completa, pero no puede acceder a reportes, historial, gestión de cuentas, anulación ni costos, ni por menú ni por acceso directo. *(La excepción es el cierre de su propio turno de caja, spec 005.)*
 - [ ] Desactivar un Cajero impide su ingreso de inmediato y su historial de ventas sigue visible para el Administrador.
 - [ ] Reactivar un Cajero le permite volver a ingresar con sus credenciales vigentes.
 - [ ] El sistema impide desactivar al último Administrador activo.

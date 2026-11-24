@@ -16,8 +16,8 @@ Los 6 principios siguientes son innegociables. Cada cambio debe poder verificars
    de pasar a la siguiente. Verificable: sin `TODO` bloqueantes ni endpoints que retornen 501 en código nuevo
    que dependa de ellos.
 
-5. **Los datos comerciales son sagrados.** El stock nunca queda negativo, el precio del detalle de venta queda
-   congelado al momento de la venta, y toda deuda de fiado queda registrada en `fiado_transacciones` (cargo, abono, anulación de venta o anulación de abono).
+5. **Los datos comerciales son sagrados.** El stock nunca queda negativo, el precio y el costo del detalle de venta
+   quedan congelados al momento de la venta (cambiar un producto después no cambia lo ya vendido), y toda deuda de fiado queda registrada en `fiado_transacciones` (cargo, abono, anulación de venta o anulación de abono).
    Verificable: `stock >= 0` en toda ejecución y conciliación: cargos − abonos − anulaciones de venta + anulaciones de abono = saldo en `v_saldo_fiado`.
 
 6. **100% en español, contexto chileno.** Código (identificadores), comentarios, mensajes de error e interfaz

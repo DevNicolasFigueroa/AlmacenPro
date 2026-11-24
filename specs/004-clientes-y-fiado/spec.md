@@ -145,7 +145,7 @@ Por decisión del dueño, el Cajero es quien conversa con el cliente y debe pode
 - Estado de cuenta imprimible o exportable y comprobante de abono impreso.
 - Importar clientes desde archivos.
 - Más de un teléfono, correo o dirección por cliente.
-- Reportes de cobranza, de lo cobrado en el día y cierre de caja: pertenecen a la spec de reportes.
+- Lo cobrado en el día y el cierre de caja pertenecen a la spec 005 (reportes y cierre de caja). Los reportes de cobranza detallada, como la antigüedad de la deuda, siguen fuera de alcance.
 - Listado de clientes inactivos o sin compras recientes.
 
 ## Criterios de finalización
@@ -178,6 +178,6 @@ Ninguna pendiente. La única duda, si el Cajero puede anular un abono, se resolv
 - **Cambio de RUT sin motivo obligatorio.** Para no frenar la atención, no se exige motivo; a cambio queda constancia inalterable de RUT anterior, RUT nuevo, quién y cuándo, visible para el Administrador (RF-24 y RF-25), y se pide confirmación explícita (RF-23).
 - **Sin fusión de cuentas.** Si el RUT nuevo ya existe, se impide el cambio en lugar de unir dos clientes, porque fusionar mezclaría deudas y compras sin posibilidad de deshacerlo.
 - **Abono mayor que la deuda.** Se permite con confirmación y deja saldo a favor, igual que al anular una venta fiada con abonos en la spec 003.
-- **Método del abono.** Se registra (efectivo, débito, crédito o transferencia) para que el cierre de caja de la spec de reportes sepa cuánto efectivo entró por abonos. No se conecta con terminales.
+- **Método del abono.** Se registra (efectivo, débito, crédito o transferencia) para que el cierre de caja de la spec 005 sepa cuánto efectivo entró por abonos. No se conecta con terminales.
 - **Total por cobrar solo para el Administrador.** Es una cifra financiera del negocio; el Cajero ve la deuda de cada cliente, no el total.
 - **Búsqueda sin resultados.** Ofrece registrar al cliente solo cuando lo escrito es un RUT válido, para no crear clientes con datos incompletos.

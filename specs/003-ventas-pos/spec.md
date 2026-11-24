@@ -102,7 +102,7 @@ Depende de la spec 001 (quién vende y qué le está permitido; la venta en curs
 
 ### Confirmar la venta
 
-- **RF-25.** CUANDO se confirma la venta, EL SISTEMA debe volver a verificar el stock de cada producto y que siga activo, y registrar en una sola operación todo o nada: la venta completada, su detalle con los precios congelados, el descuento de stock de cada producto, el movimiento de stock de tipo venta con referencia a la venta y, si es fiado, el cargo al cliente por el total.
+- **RF-25.** CUANDO se confirma la venta, EL SISTEMA debe volver a verificar el stock de cada producto y que siga activo, y registrar en una sola operación todo o nada: la venta completada, su detalle con los precios congelados (y, desde la spec 005, el costo que cada producto tenía en ese momento), el descuento de stock de cada producto, el movimiento de stock de tipo venta con referencia a la venta y, si es fiado, el cargo al cliente por el total.
 - **RF-26.** SI al confirmar algún producto no tiene stock suficiente, ENTONCES EL SISTEMA debe rechazar toda la venta sin descontar nada ni registrar deuda, indicar qué producto falta y cuánto queda, y conservar el carrito para corregirlo.
 - **RF-27.** SI al confirmar algún producto del carrito fue desactivado, ENTONCES EL SISTEMA debe rechazar la confirmación e indicar que hay que quitarlo.
 - **RF-28.** SI falla cualquier parte de la confirmación, ENTONCES EL SISTEMA debe dejar el stock, el detalle y las deudas exactamente como estaban, informarlo en español y conservar el carrito.
@@ -189,7 +189,7 @@ Depende de la spec 001 (quién vende y qué le está permitido; la venta en curs
 - Teléfono, dirección y otros datos del cliente además del RUT y el nombre opcional: agregarlos, y corregir o agregar el nombre después del registro, pertenece a la spec de clientes y fiado.
 - Devolver dinero al cliente cuando queda saldo a favor.
 - Guardar el monto recibido y el vuelto en la venta.
-- Cierre de caja, reportes de ventas y de ganancias.
+- Cierre de caja, reportes de ventas y de ganancias: pertenecen a la spec 005 (reportes y cierre de caja).
 - Ventas sin conexión y varias cajas o sucursales.
 - Reservar stock mientras el producto está en un carrito.
 
