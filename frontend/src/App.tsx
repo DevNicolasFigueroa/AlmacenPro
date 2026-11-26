@@ -1,6 +1,6 @@
 // Definición de rutas y navegación según rol (spec 001, RF-5, RF-9 a RF-11).
-import { useState } from 'react';
-import { Routes, Route, NavLink, Navigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom';
 import { RutaProtegida } from './components/RutaProtegida';
 import { ResumenStock } from './components/ResumenStock';
 import { VistaLogin } from './views/LoginView';
@@ -20,6 +20,16 @@ import { mensajeError } from './services/api';
 export function App() {
   const { usuario, cerrarSesion } = useAutenticacion();
   const [errorCierre, setErrorCierre] = useState('');
+  const { pathname } = useLocation();
+
+  // El aviso de "termina la venta antes de cerrar sesión" es momentáneo: se va al cambiar de
+  // pantalla o a los 8 segundos, para que no siga a la vista cuando la venta ya terminó.
+  useEffect(() => {
+    if (!errorCierre) return;
+    const temporizador = setTimeout(() => setErrorCierre(''), 8000);
+    return () => clearTimeout(temporizador);
+  }, [errorCierre]);
+  useEffect(() => { setErrorCierre(''); }, [pathname]);
 
   async function salir() {
     setErrorCierre('');
