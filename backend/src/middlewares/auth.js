@@ -50,6 +50,13 @@ export async function autenticar(req, res, siguiente) {
     }
 
     if (datosToken.ver !== usuario.token_version) {
+      // El token se emitió en segundos enteros: se compara desde el inicio de ese segundo.
+      if (datosToken.iat
+          && await ventasModelo.huboCancelacionAutomaticaDesde(usuario.id, new Date(datosToken.iat * 1000))) {
+        return res.status(401).json({
+          mensaje: 'Tu venta se canceló tras 15 minutos sin actividad y la sesión se cerró. Inicia sesión nuevamente',
+        });
+      }
       return res.status(401).json({
         mensaje: 'La sesión fue cerrada o la contraseña cambió, inicia sesión nuevamente',
       });

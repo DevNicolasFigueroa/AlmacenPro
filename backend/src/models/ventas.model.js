@@ -34,6 +34,19 @@ export async function buscarEnCursoPorUsuario(usuarioId) {
   return filas[0] ? { ...filas[0], total: aNumero(filas[0].total) } : null;
 }
 
+// ¿Se canceló sola alguna venta de la persona desde que se emitió su token? Sirve para explicarle
+// por qué se cerró su sesión (la cancelación por inactividad también la cierra).
+export async function huboCancelacionAutomaticaDesde(usuarioId, desde) {
+  const [filas] = await pool.query(
+    `SELECT 1
+     FROM ventas
+     WHERE usuario_id = :usuarioId AND estado = 'cancelada_automaticamente' AND cancelada_en >= :desde
+     LIMIT 1`,
+    { usuarioId, desde }
+  );
+  return filas.length > 0;
+}
+
 // RF-30: última venta confirmada de la persona. Sirve para mostrar su estado real si se cortó
 // la conexión justo al confirmar y no se llegó a ver el resumen. Sin costos ni datos de gestión.
 export async function buscarUltimaConfirmada(usuarioId) {

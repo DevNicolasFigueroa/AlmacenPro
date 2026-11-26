@@ -223,6 +223,11 @@ test('una venta abandonada se cancela a los 15 minutos y aparece en el historial
   const canceladas = await barrerVentasVencidas(new Date());
   assert.ok(canceladas >= 1);
 
+  // La cancelación también cierra la sesión, y el cajero ve por qué.
+  const despues = await peticion('/ventas/en-curso', { token: tokenCajero });
+  assert.equal(despues.estado, 401);
+  assert.match(despues.datos.mensaje, /se canceló tras 15 minutos sin actividad/);
+
   const historial = await peticion('/ventas?estado=cancelada_automaticamente', { token: tokenAdmin });
   assert.equal(historial.estado, 200);
   assert.ok(historial.datos.ventas.some((venta) => venta.id === idVenta && venta.cajero_usuario === 'cajero1'));
