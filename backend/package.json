@@ -8,6 +8,7 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "seed": "node database/seed.js",
+    "demo": "node database/demo.js",
     "test": "node --test src/utils/*.test.js",
     "test:integracion": "node --test src/tests/*.test.js"
   },
