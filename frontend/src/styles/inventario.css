@@ -1,0 +1,649 @@
+/* Productos e inventario (spec 002).
+   Se apoya en los colores y la tipografía del almacén definidos en app.css:
+   botella, letrero, papel y sello. */
+
+/* Encabezado y herramientas */
+
+.herramientas {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 0 16px;
+  align-items: end;
+}
+
+@media (max-width: 640px) {
+  .herramientas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.buscador {
+  position: relative;
+}
+
+.buscador svg {
+  position: absolute;
+  top: 50%;
+  left: 13px;
+  width: 18px;
+  height: 18px;
+  color: var(--tinta-suave);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.campo .buscador input {
+  padding-left: 40px;
+}
+
+/* Filtros por estado: resumen y filtro en un mismo control */
+
+.segmentos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.segmento {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px 7px 14px;
+  border: 2px solid var(--entrada);
+  border-radius: 999px;
+  background: var(--papel);
+  color: var(--tinta);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.segmento:hover {
+  border-color: var(--botella);
+}
+
+.segmento[aria-pressed='true'] {
+  border-color: var(--botella);
+  background: var(--botella);
+  color: var(--papel);
+}
+
+.segmento-cuenta {
+  min-width: 28px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--cabecera-tabla);
+  color: var(--botella);
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.segmento--bajo .segmento-cuenta.tiene {
+  background: var(--alerta-suave);
+  color: #6b4a00;
+}
+
+.segmento--agotado .segmento-cuenta.tiene {
+  background: var(--sello-suave);
+  color: #6e1d0c;
+}
+
+.segmento[aria-pressed='true'] .segmento-cuenta {
+  background: var(--letrero);
+  color: var(--botella);
+}
+
+/* Lista de productos */
+
+.tabla-contenedor--libre {
+  overflow: visible; /* el menú "Más" se despliega fuera de la tabla */
+}
+
+.tabla.tabla-inventario thead th:first-child {
+  border-top-left-radius: 13px;
+}
+
+.tabla.tabla-inventario thead th:last-child {
+  border-top-right-radius: 13px;
+}
+
+.tabla.tabla-inventario tbody tr:hover td {
+  background: rgba(228, 235, 227, 0.4);
+}
+
+.tabla.tabla-inventario td {
+  padding-top: 14px;
+  padding-bottom: 14px;
+  vertical-align: top;
+}
+
+.producto-nombre {
+  font-weight: 700;
+}
+
+.producto-detalle {
+  color: var(--tinta-suave);
+  font-size: 0.88rem;
+}
+
+.precio-venta {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.margen-pct {
+  display: block;
+  color: var(--tinta-suave);
+  font-size: 0.88rem;
+}
+
+.margen--negativo,
+.margen--negativo .margen-pct {
+  color: var(--sello);
+  font-weight: 700;
+}
+
+.fila--apagada td:not(.celda-acciones) {
+  opacity: 0.6;
+}
+
+/* Medidor de stock: la marca señala el mínimo del producto */
+
+.stock-celda {
+  display: grid;
+  gap: 8px;
+  min-width: 170px;
+}
+
+.stock-linea {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.medidor {
+  display: grid;
+  gap: 7px;
+}
+
+.medidor-cifra {
+  font-size: 1.12rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.medidor-regleta {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: #dbe3d8;
+}
+
+.medidor-relleno {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--exito);
+}
+
+.medidor-marca {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 3px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--tinta);
+  box-shadow: 0 0 0 2px var(--papel);
+}
+
+.medidor--bajo .medidor-relleno {
+  background: #d99a1a;
+}
+
+.medidor--agotado .medidor-regleta {
+  background: var(--sello-suave);
+  box-shadow: inset 0 0 0 1.5px var(--sello);
+}
+
+.medidor--sin_alerta .medidor-relleno {
+  background: #9aa59d;
+}
+
+.medidor-minimo {
+  color: var(--tinta-suave);
+  font-size: 0.86rem;
+}
+
+/* Acciones por fila: la principal a la vista y el resto en "Más" */
+
+.celda-acciones .acciones {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+
+.mas {
+  position: relative;
+}
+
+.mas > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mas > summary::-webkit-details-marker {
+  display: none;
+}
+
+.mas-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 6;
+  min-width: 170px;
+  margin-top: 6px;
+  padding: 6px;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  background: var(--papel);
+  box-shadow: 0 12px 32px rgba(15, 59, 46, 0.2);
+}
+
+.mas-menu button {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--tinta);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mas-menu button:hover {
+  background: var(--cabecera-tabla);
+}
+
+/* En pantallas angostas cada producto pasa a ser una tarjeta */
+
+@media (max-width: 899px) {
+  .tabla-contenedor--libre {
+    border: 0;
+    background: transparent;
+  }
+
+  .tabla.tabla-inventario,
+  .tabla.tabla-inventario tbody,
+  .tabla.tabla-inventario tr,
+  .tabla.tabla-inventario td {
+    display: block;
+  }
+
+  .tabla.tabla-inventario thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .tabla.tabla-inventario tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 12px;
+    margin-bottom: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--linea);
+    border-radius: 14px;
+    background: var(--papel);
+  }
+
+  .tabla.tabla-inventario td {
+    padding: 5px 0;
+    border: 0;
+  }
+
+  .tabla.tabla-inventario tbody tr:hover td {
+    background: none;
+  }
+
+  .tabla.tabla-inventario td[data-etiqueta]::before {
+    content: attr(data-etiqueta);
+    display: block;
+    margin-bottom: 2px;
+    color: var(--tinta-suave);
+    font-size: 0.88rem;
+    font-weight: 700;
+  }
+
+  .tabla.tabla-inventario .numero {
+    text-align: left;
+  }
+
+  .stock-celda {
+    min-width: 0;
+  }
+
+  .tabla.tabla-inventario td.celda-producto,
+  .tabla.tabla-inventario td.celda-stock,
+  .tabla.tabla-inventario td.celda-acciones {
+    grid-column: 1 / -1;
+  }
+
+  .tabla.tabla-inventario td.celda-acciones {
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--linea);
+  }
+
+  .celda-acciones .acciones {
+    justify-content: flex-start;
+  }
+
+  .mas-menu {
+    right: auto;
+    left: 0;
+  }
+}
+
+/* Ventanas (formulario, ajuste e historial) */
+
+.ventana {
+  width: min(720px, 100%);
+  max-height: 92vh;
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid var(--linea);
+  border-radius: 18px;
+  background: var(--papel);
+  box-shadow: 0 24px 60px rgba(15, 59, 46, 0.35);
+}
+
+.modal-cabecera {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  background: var(--botella);
+  color: var(--papel);
+}
+
+.modal-cabecera h3 {
+  margin: 0;
+  color: var(--letrero);
+  font-size: 1.7rem;
+  line-height: 1.05;
+}
+
+.modal-subtitulo {
+  margin: 6px 0 0;
+  color: #cfe0d5;
+  font-size: 0.96rem;
+}
+
+.modal-cerrar {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid #6f9284;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--papel);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-cerrar:hover {
+  border-color: var(--letrero);
+  color: var(--letrero);
+}
+
+.modal-cuerpo {
+  padding: 22px 24px 24px;
+}
+
+.ventana .acciones {
+  margin-top: 18px;
+}
+
+/* Formulario de producto */
+
+.grupo {
+  margin: 0 0 20px;
+  padding: 0;
+  border: 0;
+}
+
+.grupo legend {
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--linea);
+  color: var(--botella);
+  font-size: 1.02rem;
+  font-weight: 800;
+}
+
+.formulario-columnas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+}
+
+.formulario-columnas .campo--completo {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 600px) {
+  .formulario-columnas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.error-campo {
+  margin: -8px 0 12px;
+  color: #6e1d0c;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.margen-vista {
+  margin: -4px 0 4px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--exito-suave);
+  color: #174d2f;
+  font-weight: 700;
+}
+
+.margen-vista--perdida {
+  background: var(--sello-suave);
+  color: #6e1d0c;
+}
+
+/* Ajuste de stock */
+
+.motivos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 600px) {
+  .motivos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.motivo {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 2px solid var(--entrada);
+  border-radius: 12px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.motivo:hover {
+  border-color: var(--botella);
+}
+
+.motivo:focus-within {
+  outline: 3px solid var(--tinta);
+  outline-offset: 2px;
+}
+
+.motivo input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.motivo-nombre {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 800;
+}
+
+.motivo-nombre b {
+  flex: none;
+  font-size: 1.15em;
+}
+
+.motivo-ayuda {
+  color: var(--tinta-suave);
+  font-size: 0.86rem;
+}
+
+.motivo--activo {
+  border-color: var(--botella);
+  background: var(--cabecera-tabla);
+  box-shadow: inset 0 0 0 1px var(--botella);
+}
+
+.cantidad-caja {
+  position: relative;
+}
+
+.campo .cantidad-caja input {
+  padding: 14px 56px 14px 16px;
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.cantidad-unidad {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  color: var(--tinta-suave);
+  font-weight: 700;
+  transform: translateY(-50%);
+}
+
+.cambio-stock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin: 0 0 4px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--cabecera-tabla);
+  font-variant-numeric: tabular-nums;
+}
+
+.cambio-stock-antes {
+  color: var(--tinta-suave);
+  font-size: 1.05rem;
+}
+
+.cambio-stock-despues {
+  color: var(--botella);
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.cambio-stock--baja .cambio-stock-despues {
+  color: var(--sello);
+}
+
+/* Historial */
+
+.cantidad--mas {
+  color: var(--exito);
+  font-weight: 800;
+}
+
+.cantidad--menos {
+  color: var(--sello);
+  font-weight: 800;
+}
+
+.historial-nota {
+  color: var(--tinta-suave);
+}
+
+/* Franja de alertas en el punto de venta */
+
+.resumen-stock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 18px;
+}
+
+.resumen-stock a {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px;
+  border: 2px solid var(--entrada);
+  border-radius: 999px;
+  background: var(--papel);
+  color: var(--tinta);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.resumen-stock a:hover {
+  border-color: var(--botella);
+}
+
+.resumen-punto {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #d99a1a;
+}
+
+.resumen-punto--agotado {
+  background: var(--sello);
+}
+
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

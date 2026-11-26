@@ -24,6 +24,7 @@ const rutaEsquema = path.resolve(directorio, '../../database/schema.sql');
 let servidor;
 let tokenAdmin;
 let idCajero;
+let idAdmin2;
 let contrasenaCajero;
 
 function url(ruta) {
@@ -40,6 +41,29 @@ async function peticion(ruta, { metodo = 'GET', token, cuerpo } = {}) {
     body: cuerpo ? JSON.stringify(cuerpo) : undefined,
   });
   return { estado: respuesta.status, datos: await respuesta.json() };
+}
+
+// Spec 003: terminar una venta es confirmarla, y eso exige productos. Deja un producto con
+// stock en la base de pruebas y le agrega una línea al carrito de la venta indicada.
+async function armarCarrito(token, idVenta) {
+  const [existente] = await pool.query("SELECT id FROM productos WHERE nombre = 'Producto de prueba'");
+  let idProducto = existente[0]?.id;
+  if (!idProducto) {
+    const [resultado] = await pool.query(
+      "INSERT INTO productos (nombre, precio_venta, stock) VALUES ('Producto de prueba', 1000, 100)"
+    );
+    idProducto = resultado.insertId;
+  }
+  const linea = await peticion(`/ventas/${idVenta}/lineas`, {
+    metodo: 'POST', token, cuerpo: { producto_id: idProducto, cantidad: 1 },
+  });
+  assert.equal(linea.estado, 200);
+}
+
+async function confirmarEnEfectivo(token, idVenta) {
+  return peticion(`/ventas/${idVenta}/confirmar`, {
+    metodo: 'POST', token, cuerpo: { metodo_pago: 'efectivo', monto_recibido: 1000 },
+  });
 }
 
 before(async () => {
@@ -179,7 +203,8 @@ test('el cajero usa su clave temporal, crea una venta y no puede cerrar sesión 
   assert.equal(cierre.estado, 409);
   assert.equal(cierre.datos.mensaje, 'Termina o cancela la venta antes de cerrar sesión');
 
-  const fin = await peticion(`/ventas/${idVenta}/finalizar`, { metodo: 'POST', token: tokenListo });
+  await armarCarrito(tokenListo, idVenta);
+  const fin = await confirmarEnEfectivo(tokenListo, idVenta);
   assert.equal(fin.estado, 200);
   assert.equal((await peticion('/auth/logout', { metodo: 'POST', token: tokenListo })).estado, 200);
 });
@@ -198,9 +223,14 @@ test('una venta abandonada se cancela a los 15 minutos y aparece en el historial
   const canceladas = await barrerVentasVencidas(new Date());
   assert.ok(canceladas >= 1);
 
+  // La cancelación también cierra la sesión, y el cajero ve por qué.
+  const despues = await peticion('/ventas/en-curso', { token: tokenCajero });
+  assert.equal(despues.estado, 401);
+  assert.match(despues.datos.mensaje, /se canceló tras 15 minutos sin actividad/);
+
   const historial = await peticion('/ventas?estado=cancelada_automaticamente', { token: tokenAdmin });
   assert.equal(historial.estado, 200);
-  assert.ok(historial.datos.some((venta) => venta.id === idVenta && venta.cajero_usuario === 'cajero1'));
+  assert.ok(historial.datos.ventas.some((venta) => venta.id === idVenta && venta.cajero_usuario === 'cajero1'));
 });
 
 test('un cajero no puede desactivar cuentas ni consultar el historial', async () => {
@@ -215,4 +245,208 @@ test('un cajero no puede desactivar cuentas ni consultar el historial', async ()
   assert.equal((await peticion(`/auth/usuarios/${idCajero}/estado`, {
     metodo: 'PATCH', token: tokenCajero, cuerpo: { activo: false },
   })).estado, 403);
+});
+
+test('el último Administrador activo no puede desactivarse ni restablecerse (RF-26, RF-27)', async () => {
+  const admin = await usuariosModelo.buscarPorUsuario('admin');
+
+  const loginAdmin = await peticion('/auth/login', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'admin', password: 'nueva-clave-456' },
+  });
+  assert.equal(loginAdmin.estado, 200);
+
+  // Desactivar al último Administrador activo se rechaza.
+  const desactivarUltimo = await peticion(`/auth/usuarios/${admin.id}/estado`, {
+    metodo: 'PATCH',
+    token: loginAdmin.datos.token,
+    cuerpo: { activo: false },
+  });
+  assert.equal(desactivarUltimo.estado, 409);
+  assert.equal(
+    desactivarUltimo.datos.mensaje,
+    'Debe quedar al menos un Administrador activo'
+  );
+
+  // Restablecer la contraseña de un único Administrador activo se rechaza:
+  // con esa cuenta la acción se hace con "cambiar tu propia contraseña".
+  const restablelerUltimo = await peticion(`/auth/usuarios/${admin.id}/contrasena`, {
+    metodo: 'PATCH',
+    token: loginAdmin.datos.token,
+  });
+  assert.equal(restablelerUltimo.estado, 400);
+  assert.equal(restablelerUltimo.datos.mensaje, 'Usa la opción de cambiar tu propia contraseña');
+
+  // Cuando hay otro Administrador activo, desactivarlo y reactivarlo es posible.
+  const crearAdmin2 = await peticion('/auth/usuarios', {
+    metodo: 'POST',
+    token: loginAdmin.datos.token,
+    cuerpo: { nombre: 'Segundo', usuario: 'admin2', rol: 'administrador', password: 'admin2-1234' },
+  });
+  assert.equal(crearAdmin2.estado, 201);
+  idAdmin2 = crearAdmin2.datos.id;
+
+  const desactivarAdmin2 = await peticion(`/auth/usuarios/${idAdmin2}/estado`, {
+    metodo: 'PATCH',
+    token: loginAdmin.datos.token,
+    cuerpo: { activo: false },
+  });
+  assert.equal(desactivarAdmin2.estado, 200);
+
+  const reactivarAdmin2 = await peticion(`/auth/usuarios/${idAdmin2}/estado`, {
+    metodo: 'PATCH',
+    token: loginAdmin.datos.token,
+    cuerpo: { activo: true },
+  });
+  assert.equal(reactivarAdmin2.estado, 200);
+});
+
+test('el Administrador desactiva un cajero, puede reactivarlo y se reingresa', async () => {
+  const loginAdmin = await peticion('/auth/login', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'admin', password: 'nueva-clave-456' },
+  });
+  assert.equal(loginAdmin.estado, 200);
+  const tokenAdmin = loginAdmin.datos.token;
+
+  const loginCajero = async () => peticion('/auth/login', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'cajero1', password: 'clave-cajero-123' },
+  });
+
+  assert.equal((await loginCajero()).estado, 200);
+
+  const desactivar = await peticion(`/auth/usuarios/${idCajero}/estado`, {
+    metodo: 'PATCH',
+    token: tokenAdmin,
+    cuerpo: { activo: false },
+  });
+  assert.equal(desactivar.estado, 200);
+
+  const ingresoDesactivado = await loginCajero();
+  assert.equal(ingresoDesactivado.estado, 403);
+  assert.equal(
+    ingresoDesactivado.datos.mensaje,
+    'Esta cuenta está desactivada. Consulta con el administrador'
+  );
+
+  const reactivar = await peticion(`/auth/usuarios/${idCajero}/estado`, {
+    metodo: 'PATCH',
+    token: tokenAdmin,
+    cuerpo: { activo: true },
+  });
+  assert.equal(reactivar.estado, 200);
+
+  assert.equal((await loginCajero()).estado, 200);
+});
+
+test('un cajero desactivado con venta en curso solo puede cerrarla y pierde el acceso', async () => {
+  const loginAdmin = await peticion('/auth/login', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'admin', password: 'nueva-clave-456' },
+  });
+  assert.equal(loginAdmin.estado, 200);
+
+  const loginCajero = await peticion('/auth/login', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'cajero1', password: 'clave-cajero-123' },
+  });
+  assert.equal(loginCajero.estado, 200);
+  const tokenCajero = loginCajero.datos.token;
+
+  const inicio = await peticion('/ventas/iniciar', { metodo: 'POST', token: tokenCajero });
+  assert.equal(inicio.estado, 201);
+  const idVenta = inicio.datos.venta.id;
+
+  const desactivar = await peticion(`/auth/usuarios/${idCajero}/estado`, {
+    metodo: 'PATCH',
+    token: loginAdmin.datos.token,
+    cuerpo: { activo: false },
+  });
+  assert.equal(desactivar.estado, 200);
+  assert.ok(desactivar.datos.mensaje.includes('podrá terminar o cancelar la venta'));
+
+  // Solo las acciones para terminar la venta siguen permitidas (spec 003): no puede iniciar
+  // otra venta ni usar rutas ajenas al cobro.
+  const otraVenta = await peticion('/ventas/iniciar', { metodo: 'POST', token: tokenCajero });
+  assert.equal(otraVenta.estado, 403);
+  const inventario = await peticion('/productos', { token: tokenCajero });
+  assert.equal(inventario.estado, 403);
+
+  // Terminar es cobrar: puede armar y confirmar el carrito, pero no iniciar otra venta.
+  await armarCarrito(tokenCajero, idVenta);
+  const fin = await confirmarEnEfectivo(tokenCajero, idVenta);
+  assert.equal(fin.estado, 200);
+
+  // Al terminar la venta, la sesión se invalida al momento.
+  const salida = await peticion('/auth/logout', { metodo: 'POST', token: tokenCajero });
+  assert.equal(salida.estado, 401);
+
+  const reactivar = await peticion(`/auth/usuarios/${idCajero}/estado`, {
+    metodo: 'PATCH',
+    token: loginAdmin.datos.token,
+    cuerpo: { activo: true },
+  });
+  assert.equal(reactivar.estado, 200);
+});
+
+test('cancelar una venta a un cajero desactivado invalida su acceso', async () => {
+  const loginAdmin = await peticion('/auth/login', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'admin', password: 'nueva-clave-456' },
+  });
+  assert.equal(loginAdmin.estado, 200);
+
+  const loginCajero = await peticion('/auth/login', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'cajero1', password: 'clave-cajero-123' },
+  });
+  assert.equal(loginCajero.estado, 200);
+  const tokenCajero = loginCajero.datos.token;
+
+  const inicio = await peticion('/ventas/iniciar', { metodo: 'POST', token: tokenCajero });
+  assert.equal(inicio.estado, 201);
+  const idVenta = inicio.datos.venta.id;
+
+  const desactivar = await peticion(`/auth/usuarios/${idCajero}/estado`, {
+    metodo: 'PATCH',
+    token: loginAdmin.datos.token,
+    cuerpo: { activo: false },
+  });
+  assert.equal(desactivar.estado, 200);
+
+  const cancelar = await peticion(`/ventas/${idVenta}/cancelar`, { metodo: 'POST', token: tokenCajero });
+  assert.equal(cancelar.estado, 200);
+
+  // Aparece sesión invalidada: el token queda caducado.
+  const nuevaVenta = await peticion('/ventas/iniciar', { metodo: 'POST', token: tokenCajero });
+  assert.equal(nuevaVenta.estado, 401);
+});
+
+test('crear cuentas duplicadas y contraseñas iguales al usuario se rechazan', async () => {
+  const loginAdmin = await peticion('/auth/login', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'admin', password: 'nueva-clave-456' },
+  });
+  assert.equal(loginAdmin.estado, 200);
+
+  const duplicado = await peticion('/auth/usuarios', {
+    metodo: 'POST',
+    token: loginAdmin.datos.token,
+    cuerpo: { nombre: 'Dup', usuario: 'admin', rol: 'cajero' },
+  });
+  assert.equal(duplicado.estado, 409);
+
+  const igualUsuario = await peticion('/auth/usuarios', {
+    metodo: 'POST',
+    token: loginAdmin.datos.token,
+    cuerpo: { nombre: 'CajeroX', usuario: 'cajero2x', rol: 'administrador', password: 'cajero2x' },
+  });
+  assert.equal(igualUsuario.estado, 400);
+
+  const recuperar = await peticion('/auth/recuperar-contrasena', {
+    metodo: 'POST',
+    cuerpo: { usuario: 'cajero1', codigoRecuperacion: 'x', nuevaContrasena: 'cajero2x' },
+  });
+  assert.equal(recuperar.estado, 401);
 });

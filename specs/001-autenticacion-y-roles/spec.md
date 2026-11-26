@@ -21,9 +21,9 @@ Este es el primer módulo del sistema porque es la puerta de entrada de todos lo
 **Cajero (trabajador de caja)**
 - Su cuenta la crea el Administrador y recibe una contraseña temporal que debe cambiar en su primer ingreso.
 - Puede registrar ventas al contado y fiadas, y consultar el inventario y el stock.
-- No puede modificar productos, precios ni existencias; no ve costos de compra ni márgenes; no ve reportes, historial de ventas, gestión de cuentas ni el listado completo de deudas; no puede anular ventas.
+- No puede modificar productos, precios ni existencias; no ve costos de compra ni márgenes; no ve reportes, historial de ventas ni gestión de cuentas; no puede anular ventas. Ve la cuenta de fiado de los clientes, registra abonos y mantiene sus datos (spec 004). Cierra su propio turno de caja y ve sus propios cierres (spec 005).
 - No puede gestionar cuentas ni recuperar su contraseña por sí solo: si la olvida, el Administrador le genera una nueva.
-- *Nota: la consulta del saldo de fiado del cliente (RF-13) se implementa en fase 2, junto con la spec de fiado/POS.*
+- *Nota: el acceso del Cajero al fiado (RF-13) lo definen las specs 003 y 004; esta última lo amplía a la cuenta completa, los abonos y los datos del cliente.*
 
 ## Historias de usuario
 
@@ -57,7 +57,7 @@ Este es el primer módulo del sistema porque es la puerta de entrada de todos lo
 - **RF-9.** MIENTRAS la sesión esté vigente, EL SISTEMA debe permitir únicamente las funciones propias del rol de la cuenta.
 - **RF-10.** EL SISTEMA debe otorgar al Administrador acceso total a ventas, inventario, clientes y fiado, reportes, anulación de ventas y gestión de cuentas.
 - **RF-11.** EL SISTEMA debe permitir al Cajero registrar ventas al contado y fiadas, y consultar el inventario y el stock viendo solo el precio de venta y las existencias.
-- **RF-12.** EL SISTEMA debe impedir que el Cajero acceda a reportes, historial de ventas, gestión de cuentas, anulación de ventas, costos de compra, márgenes y al listado completo de deudas de fiado.
+- **RF-12.** EL SISTEMA debe impedir que el Cajero acceda a reportes, historial de ventas, gestión de cuentas, anulación de ventas, costos de compra y márgenes. *(Actualizada por la spec 004: el Cajero ya no tiene vedado el listado de clientes ni de deudas de fiado, y puede ver el detalle de las compras de un cliente desde su cuenta. Actualizada por la spec 005: el Cajero sigue sin acceder a los reportes, pero puede cerrar su propio turno de caja y ver el resultado de sus propios cierres, nunca los de otras personas, costos ni márgenes.)*
 - **RF-14.** SI un Cajero intenta acceder a una vista o ejecutar una acción reservada al Administrador, ENTONCES EL SISTEMA debe denegar la acción, mantenerlo en la pantalla donde estaba y mostrar un mensaje claro de permisos insuficientes.
 - **RF-15.** EL SISTEMA debe ocultar o deshabilitar en la interfaz las opciones que el rol no puede usar, y denegar igualmente el acceso cuando se intente por cualquier otra vía.
 - **RF-16.** SI no existe una sesión vigente, ENTONCES EL SISTEMA debe negar el acceso a cualquier función protegida y solicitar el ingreso.
@@ -110,7 +110,7 @@ Este es el primer módulo del sistema porque es la puerta de entrada de todos lo
 
 Estos requisitos no forman parte del MVP. Se conservan con su numeración para implementarlos en una fase posterior sin reinterpretar la spec.
 
-- **RF-13.** CUANDO el Cajero registra una venta fiada, EL SISTEMA debe permitirle consultar el saldo de fiado del cliente que está atendiendo, sin permitirle modificarlo ni registrar abonos. Se implementa junto con la spec de fiado/POS.
+- **RF-13.** CUANDO el Cajero registra una venta fiada, EL SISTEMA debe permitirle consultar el saldo de fiado del cliente que está atendiendo. *(Actualizada por la spec 004: el Cajero también registra abonos al fiado y ve la cuenta completa del cliente; la anulación de abonos sigue siendo solo del Administrador. La spec 003 ya muestra el saldo al vender.)*
 - **RF-30.** CUANDO el Administrador solicita un nuevo código de recuperación mientras tiene sesión activa, EL SISTEMA debe generarlo, mostrarlo una sola vez e invalidar el código anterior.
 - **RF-32.** EL SISTEMA debe registrar, para cada cuenta, la fecha, la hora y la cuenta que realizó cada creación, cambio de rol, activación, desactivación, cambio o restablecimiento de contraseña y regeneración del código de recuperación, y permitir al Administrador consultar ese registro.
 - **RNF-9.** El registro auditable de cambios de cuenta no debe poder modificarse ni eliminarse desde la interfaz.
@@ -146,20 +146,20 @@ Estos requisitos no forman parte del MVP. Se conservan con su numeración para i
 
 ## Criterios de finalización
 
-- [ ] Un Administrador puede ingresar con sus credenciales y llega a la pantalla principal con acceso total.
-- [ ] Un Administrador puede crear un Cajero, entregarle la contraseña temporal y ese Cajero puede ingresar y cambiarla en su primer acceso.
-- [ ] Un Cajero no puede operar sin antes cambiar su contraseña temporal.
-- [ ] Credenciales inválidas no permiten el ingreso y el mensaje no revela si el usuario existe.
-- [ ] Cinco intentos fallidos bloquean la cuenta 15 minutos; al cumplirse el plazo el ingreso vuelve a estar disponible.
-- [ ] Un Cajero puede registrar una venta completa, pero no puede acceder a reportes, historial, gestión de cuentas, anulación ni costos, ni por menú ni por acceso directo.
-- [ ] Desactivar un Cajero impide su ingreso de inmediato y su historial de ventas sigue visible para el Administrador.
-- [ ] Reactivar un Cajero le permite volver a ingresar con sus credenciales vigentes.
-- [ ] El sistema impide desactivar al último Administrador activo.
+- [x] Un Administrador puede ingresar con sus credenciales y llega a la pantalla principal con acceso total.
+- [x] Un Administrador puede crear un Cajero, entregarle la contraseña temporal y ese Cajero puede ingresar y cambiarla en su primer acceso.
+- [x] Un Cajero no puede operar sin antes cambiar su contraseña temporal.
+- [x] Credenciales inválidas no permiten el ingreso y el mensaje no revela si el usuario existe.
+- [x] Cinco intentos fallidos bloquean la cuenta 15 minutos; al cumplirse el plazo el ingreso vuelve a estar disponible.
+- [x] Un Cajero puede registrar una venta completa, pero no puede acceder a reportes, historial, gestión de cuentas, anulación ni costos, ni por menú ni por acceso directo. *(La excepción es el cierre de su propio turno de caja, spec 005.)*
+- [x] Desactivar un Cajero impide su ingreso de inmediato y su historial de ventas sigue visible para el Administrador.
+- [x] Reactivar un Cajero le permite volver a ingresar con sus credenciales vigentes.
+- [x] El sistema impide desactivar al último Administrador activo.
 - [ ] Un Administrador puede desactivar o restablecer la contraseña de otro Administrador, pero el sistema impide dejar el negocio sin ningún Administrador activo.
 - [ ] El cierre de sesión termina el acceso en todos los equipos, y no se permite cerrar mientras hay una venta en curso.
 - [ ] Al cumplirse 8 horas, el sistema exige un nuevo ingreso; si hay una venta en curso, permite cerrarla antes.
-- [ ] Cada venta registrada queda asociada a la cuenta que la realizó.
-- [ ] La pantalla muestra en todo momento qué cuenta está operando.
+- [x] Cada venta registrada queda asociada a la cuenta que la realizó.
+- [x] La pantalla muestra en todo momento qué cuenta está operando.
 - [ ] Todos los textos visibles están en español y el ingreso responde en menos de 2 segundos en el equipo del almacén.
 
 ## Dudas abiertas
@@ -168,7 +168,7 @@ No quedan dudas abiertas: todas las decisiones de negocio necesarias están toma
 
 - **Segundo Administrador de respaldo.** El sistema permite varias cuentas de Administrador y protege siempre la última activa, pero no obliga a crear una segunda. Se recomienda que el almacén tenga al menos dos para no depender de una sola persona. Si solo existe una y esa persona pierde la contraseña y el código de recuperación, el acceso se recupera con intervención técnica fuera del sistema.
 - **Turnos de más de 8 horas.** La sesión no se extiende ni se renueva: al cumplirse las 8 horas se exige un nuevo ingreso, salvo que haya una venta en curso, que puede terminarse o cancelarse. Se prefiere esta regla a una sesión indefinida porque el equipo es compartido.
-- **Fiado visible para el Cajero (fase 2).** La consulta del saldo del cliente que se atiende (RF-13) se implementará junto con la spec de fiado/POS, donde existe la venta fiada. En este MVP el Cajero sigue sin ver el listado completo de deudas (RF-12).
+- **Fiado visible para el Cajero (fase 2).** La consulta del saldo del cliente que se atiende (RF-13) se implementará junto con la spec de fiado/POS, donde existe la venta fiada. Esa restricción, y la de ver el listado de deudas (RF-12), fueron reemplazadas por la spec 004.
 - **Administrador que gestiona a otro Administrador.** Un Administrador puede desactivar o restablecer la contraseña de otro, con la protección de que siempre debe quedar al menos un Administrador activo. La auditoría de esos cambios se implementa en fase 2 (RF-32, RNF-9). Se acepta el riesgo porque los administradores son personas de confianza del dueño y la alternativa es quedar sin acceso al negocio.
 - **Alcance del MVP.** Se prioriza lo necesario para operar y proteger la caja: ingreso, sesión de 8 horas, roles, cuentas, contraseñas, recuperación con código, guarda del último Administrador y protección de la venta en curso. La consulta de fiado (RF-13), la regeneración del código (RF-30) y la auditoría/cambio de rol (RF-32, RNF-9) quedan para fase 2.
 - **Una cuenta por persona.** No se admiten cuentas genéricas ni compartidas: cada venta debe quedar asociada a la persona que la registró. El sistema no puede impedir que dos personas usen la misma cuenta, pero la regla de uso queda establecida y el Administrador responde por su cumplimiento.

@@ -9,7 +9,7 @@ import {
   iniciarSesion,
   listarUsuarios,
   recuperarContrasenaAdmin,
-  restablecerContrasenaCajero,
+  restablecerContrasena,
 } from '../controllers/auth.controller.js';
 
 const router = Router();
@@ -28,6 +28,6 @@ router.post('/cambiar-contrasena', cambiarContrasena);
 router.get('/usuarios', requiereRol('administrador'), listarUsuarios);
 router.post('/usuarios', requiereRol('administrador'), crearCuenta);
 router.patch('/usuarios/:id/estado', requiereRol('administrador'), cambiarEstado);
-router.patch('/usuarios/:id/contrasena', requiereRol('administrador'), restablecerContrasenaCajero);
+router.patch('/usuarios/:id/contrasena', requiereRol('administrador'), restablecerContrasena);
 
 export default router;

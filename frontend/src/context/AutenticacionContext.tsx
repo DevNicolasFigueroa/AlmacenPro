@@ -1,5 +1,5 @@
 // Contexto global de autenticación: guarda usuario, rol, token y cierre de sesión.
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api } from '../services/api';
 import type { Usuario } from '../types';
 
@@ -17,6 +17,24 @@ export function ProveedorAutenticacion({ children }: { children: ReactNode }) {
     const guardado = localStorage.getItem('almacenpro_usuario');
     return guardado ? (JSON.parse(guardado) as Usuario) : null;
   });
+
+  // RF-34: si la sesión se cierra en otra pestaña, esta también termina.
+  useEffect(() => {
+    function manejarCierre(evento: StorageEvent) {
+      if (evento.key !== 'almacenpro_token' || evento.newValue !== null) return;
+
+      setUsuario(null);
+      sessionStorage.setItem('almacenpro_aviso', 'Tu sesión se cerró en otra pestaña');
+
+      const ruta = window.location.pathname;
+      if (ruta !== '/login' && ruta !== '/recuperar-contrasena') {
+        window.location.href = '/login';
+      }
+    }
+
+    window.addEventListener('storage', manejarCierre);
+    return () => window.removeEventListener('storage', manejarCierre);
+  }, []);
 
   function iniciarSesion(nuevoUsuario: Usuario, token: string) {
     localStorage.setItem('almacenpro_token', token);

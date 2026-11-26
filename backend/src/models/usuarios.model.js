@@ -1,5 +1,6 @@
 // Modelo de usuarios: único lugar con SQL de la tabla "usuarios" (spec 001).
 import { pool } from '../config/db.js';
+import { puedeDesactivar } from '../utils/validaciones.js';
 
 export async function buscarPorUsuario(usuario) {
   const [filas] = await pool.query('SELECT * FROM usuarios WHERE usuario = :usuario', {
@@ -16,7 +17,7 @@ export async function buscarPorId(id) {
 export async function listar() {
   const [filas] = await pool.query(`
     SELECT id, nombre, usuario, rol, activo, intentos_fallidos,
-           requiere_cambio_contrasena, creado_en
+           requiere_cambio_contrasena, creado_en, actualizado_en
     FROM usuarios
     ORDER BY rol, nombre
   `);
@@ -49,16 +50,83 @@ export async function crear({
   return resultado.insertId;
 }
 
-// Los administradores son permanentes: solo se desactivan cuentas de cajero.
-export async function cambiarEstado(id, activo) {
-  const [resultado] = await pool.query(
-    `UPDATE usuarios
-     SET activo = :activo,
-         token_version = token_version + 1
-     WHERE id = :id AND rol = 'cajero'`,
-    { id, activo: activo ? 1 : 0 }
+// Cuenta administradores activos. Con "bloquear" fija las filas para que dos
+// desactivaciones simultáneas no puedan dejar el negocio sin administrador.
+export async function contarAdministradoresActivos(conexion = pool, { bloquear = false } = {}) {
+  const [filas] = await conexion.query(
+    `SELECT id FROM usuarios
+     WHERE rol = 'administrador' AND activo = 1
+     ${bloquear ? 'FOR UPDATE' : ''}`
   );
-  return resultado.affectedRows > 0;
+  return filas.length;
+}
+
+// RF-23, RF-24, RF-26 y RF-38: cambio de estado atómico.
+// - Un administrador solo se desactiva si queda otro activo.
+// - Si la cuenta tiene una venta en curso, se conserva su token para que pueda
+//   terminarla o cancelarla antes de perder el acceso.
+export async function cambiarEstado(id, activo) {
+  const conexion = await pool.getConnection();
+  try {
+    await conexion.beginTransaction();
+
+    const [previos] = await conexion.query(
+      'SELECT id, rol, activo FROM usuarios WHERE id = ?',
+      [id]
+    );
+    const objetivo = previos[0];
+    if (!objetivo) {
+      await conexion.rollback();
+      return { noEncontrada: true };
+    }
+
+    if (!activo && objetivo.rol === 'administrador' && objetivo.activo) {
+      const adminsActivos = await contarAdministradoresActivos(conexion, { bloquear: true });
+      if (!puedeDesactivar(objetivo.rol, objetivo.activo, adminsActivos)) {
+        await conexion.rollback();
+        return { ultimoAdministrador: true };
+      }
+    }
+
+    const [bloqueadas] = await conexion.query(
+      'SELECT id FROM usuarios WHERE id = ? FOR UPDATE',
+      [id]
+    );
+    if (bloqueadas.length === 0) {
+      await conexion.rollback();
+      return { noEncontrada: true };
+    }
+
+    if (activo) {
+      await conexion.query('UPDATE usuarios SET activo = 1 WHERE id = ?', [id]);
+      await conexion.commit();
+      return { ok: true, ventaEnCurso: false };
+    }
+
+    const [ventas] = await conexion.query(
+      `SELECT id FROM ventas
+       WHERE usuario_id = ? AND estado = 'en_curso'
+       LIMIT 1 FOR UPDATE`,
+      [id]
+    );
+    const ventaEnCurso = ventas.length > 0;
+
+    await conexion.query(
+      `UPDATE usuarios
+       SET activo = 0,
+           token_version = token_version + ?
+       WHERE id = ?`,
+      [ventaEnCurso ? 0 : 1, id]
+    );
+
+    await conexion.commit();
+    return { ok: true, ventaEnCurso };
+  } catch (error) {
+    await conexion.rollback();
+    throw error;
+  } finally {
+    conexion.release();
+  }
 }
 
 // Invalida los tokens emitidos anteriormente (cierre manual, cambio de clave, etc.).
