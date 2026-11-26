@@ -13,9 +13,11 @@ interface Secreto {
   valor: string;
 }
 
+// MySQL entrega 'YYYY-MM-DD HH:mm:ss' en hora local del servidor: no se interpreta como UTC
+// (agregarle 'Z' mostraba la hora atrasada en la diferencia con UTC, 3 h en Chile).
 function formatearFecha(valor: string | undefined) {
   if (!valor) return '';
-  const fecha = new Date(String(valor).replace(' ', 'T') + 'Z');
+  const fecha = new Date(String(valor).replace(' ', 'T'));
   return Number.isNaN(fecha.getTime()) ? valor : fecha.toLocaleString('es-CL');
 }
 
