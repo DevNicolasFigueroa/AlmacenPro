@@ -109,6 +109,27 @@ test('el administrador ingresa y recibe token con sesión de 8 horas', async () 
   tokenAdmin = respuesta.datos.token;
 });
 
+test('las cuentas demo solo se publican con MODO_DEMO=true', async () => {
+  const modoAnterior = process.env.MODO_DEMO;
+  try {
+    delete process.env.MODO_DEMO;
+    const apagado = await peticion('/auth/cuentas-demo');
+    assert.equal(apagado.estado, 200);
+    assert.deepEqual(apagado.datos.cuentas, []);
+
+    process.env.MODO_DEMO = 'true';
+    const encendido = await peticion('/auth/cuentas-demo');
+    assert.equal(encendido.estado, 200);
+    assert.deepEqual(encendido.datos.cuentas.map((cuenta) => cuenta.rol), ['administrador', 'cajero']);
+    for (const cuenta of encendido.datos.cuentas) {
+      assert.ok(cuenta.usuario && cuenta.password);
+    }
+  } finally {
+    if (modoAnterior === undefined) delete process.env.MODO_DEMO;
+    else process.env.MODO_DEMO = modoAnterior;
+  }
+});
+
 test('cinco intentos fallidos bloquean la cuenta 15 minutos (RF-7)', async () => {
   for (let intento = 0; intento < 5; intento += 1) {
     const respuesta = await peticion('/auth/login', {

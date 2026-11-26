@@ -9,6 +9,7 @@ import {
   generarContrasenaTemporal,
 } from '../services/credenciales.js';
 import { ErrorApi } from '../middlewares/errores.js';
+import { CUENTAS_DEMO, esModoDemo } from '../config/demo.js';
 import {
   credencialesCompletas,
   esContrasenaValida,
@@ -30,6 +31,15 @@ function datosPublicos(usuario) {
     rol: usuario.rol,
     requiereCambioContrasena: Boolean(usuario.requiere_cambio_contrasena),
   };
+}
+
+// Cuentas que el inicio de sesión muestra para probar la demo. Fuera de MODO_DEMO la lista va vacía:
+// en un almacén real nunca se publican usuarios ni contraseñas.
+export async function listarCuentasDemo(req, res) {
+  const cuentas = esModoDemo()
+    ? CUENTAS_DEMO.map(({ usuario, password, rol }) => ({ usuario, password, rol }))
+    : [];
+  res.json({ cuentas });
 }
 
 export async function iniciarSesion(req, res) {

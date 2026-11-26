@@ -7,6 +7,7 @@ import {
   cerrarSesion,
   crearCuenta,
   iniciarSesion,
+  listarCuentasDemo,
   listarUsuarios,
   recuperarContrasenaAdmin,
   restablecerContrasena,
@@ -17,6 +18,7 @@ const router = Router();
 // Rutas públicas
 router.post('/login', iniciarSesion);
 router.post('/recuperar-contrasena', recuperarContrasenaAdmin);
+router.get('/cuentas-demo', listarCuentasDemo);
 
 // A partir de aquí se exige sesión activa
 router.use(autenticar);
