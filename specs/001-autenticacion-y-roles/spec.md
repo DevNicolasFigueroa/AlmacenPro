@@ -146,20 +146,20 @@ Estos requisitos no forman parte del MVP. Se conservan con su numeración para i
 
 ## Criterios de finalización
 
-- [ ] Un Administrador puede ingresar con sus credenciales y llega a la pantalla principal con acceso total.
-- [ ] Un Administrador puede crear un Cajero, entregarle la contraseña temporal y ese Cajero puede ingresar y cambiarla en su primer acceso.
-- [ ] Un Cajero no puede operar sin antes cambiar su contraseña temporal.
-- [ ] Credenciales inválidas no permiten el ingreso y el mensaje no revela si el usuario existe.
-- [ ] Cinco intentos fallidos bloquean la cuenta 15 minutos; al cumplirse el plazo el ingreso vuelve a estar disponible.
-- [ ] Un Cajero puede registrar una venta completa, pero no puede acceder a reportes, historial, gestión de cuentas, anulación ni costos, ni por menú ni por acceso directo. *(La excepción es el cierre de su propio turno de caja, spec 005.)*
-- [ ] Desactivar un Cajero impide su ingreso de inmediato y su historial de ventas sigue visible para el Administrador.
-- [ ] Reactivar un Cajero le permite volver a ingresar con sus credenciales vigentes.
-- [ ] El sistema impide desactivar al último Administrador activo.
+- [x] Un Administrador puede ingresar con sus credenciales y llega a la pantalla principal con acceso total.
+- [x] Un Administrador puede crear un Cajero, entregarle la contraseña temporal y ese Cajero puede ingresar y cambiarla en su primer acceso.
+- [x] Un Cajero no puede operar sin antes cambiar su contraseña temporal.
+- [x] Credenciales inválidas no permiten el ingreso y el mensaje no revela si el usuario existe.
+- [x] Cinco intentos fallidos bloquean la cuenta 15 minutos; al cumplirse el plazo el ingreso vuelve a estar disponible.
+- [x] Un Cajero puede registrar una venta completa, pero no puede acceder a reportes, historial, gestión de cuentas, anulación ni costos, ni por menú ni por acceso directo. *(La excepción es el cierre de su propio turno de caja, spec 005.)*
+- [x] Desactivar un Cajero impide su ingreso de inmediato y su historial de ventas sigue visible para el Administrador.
+- [x] Reactivar un Cajero le permite volver a ingresar con sus credenciales vigentes.
+- [x] El sistema impide desactivar al último Administrador activo.
 - [ ] Un Administrador puede desactivar o restablecer la contraseña de otro Administrador, pero el sistema impide dejar el negocio sin ningún Administrador activo.
 - [ ] El cierre de sesión termina el acceso en todos los equipos, y no se permite cerrar mientras hay una venta en curso.
 - [ ] Al cumplirse 8 horas, el sistema exige un nuevo ingreso; si hay una venta en curso, permite cerrarla antes.
-- [ ] Cada venta registrada queda asociada a la cuenta que la realizó.
-- [ ] La pantalla muestra en todo momento qué cuenta está operando.
+- [x] Cada venta registrada queda asociada a la cuenta que la realizó.
+- [x] La pantalla muestra en todo momento qué cuenta está operando.
 - [ ] Todos los textos visibles están en español y el ingreso responde en menos de 2 segundos en el equipo del almacén.
 
 ## Dudas abiertas

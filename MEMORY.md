@@ -61,7 +61,17 @@ y `AGENTS.md` antes de empezar cualquier tarea.
   turnos sin cerrar. Migración 006 aplicada en `almacenpro` (2026-11-24). 126 pruebas unitarias y 127 de integración
   (34 de esta spec) pasan contra MySQL real; checklist manual hecho en el navegador sobre una base de pruebas; con
   50.000 ventas, 5.000 productos y 20.000 movimientos de fiado lo más lento fue 255 ms (límite 2 s).
+- Prueba manual completa en el navegador (2026-11-26), sobre una base desechable y puertos aislados: acceso y
+  roles, inventario, venta (efectivo, débito, crédito, fiado con cliente nuevo), rechazo por stock, venta
+  abandonada (simulando la inactividad en la base), historial y anulación, clientes, abonos, cambio de RUT,
+  reportes y cierre de caja con devolución en el turno de quien anula; vista de celular y tablet. Una venta de
+  un producto tomó 5 acciones (11,7 s con la demora de la herramienta). Se corrigieron 5 errores (rama
+  `correcciones-pruebas-manuales`). Criterios de la spec 001 verificados y marcados, salvo 4 que no se pudieron
+  probar a mano (dos administradores, cierre en todos los equipos, sesión de 8 horas, tiempo en el equipo del
+  almacén).
 - Pendiente de implementar: nada de las especificaciones aprobadas; faltan despliegue y las ideas fuera de alcance.
+- Duda para una próxima spec: un turno que solo tiene efectivo devuelto por una anulación no aparece como "sin
+  cerrar" (la spec 005 define turno sin cerrar como ventas o abonos sin cierre), aunque sí movió efectivo.
 
 ## 2. Decisiones clave (y por qué)
 
@@ -125,6 +135,13 @@ y `AGENTS.md` antes de empezar cualquier tarea.
   desactivada con venta en curso: solo puede terminar o cancelar su venta; su turno se ve como "sin cerrar".
 - En las pruebas de integración, los nombres de los datos de prueba no deben contener palabras que otra prueba
   busque en las respuestas (por ejemplo "costo"): dos pruebas fallaron por eso.
+- Las fechas de MySQL llegan en hora local: nunca agregarles 'Z' (la pantalla de cuentas mostraba 3 h menos).
+- No leer y borrar `sessionStorage` dentro de un `useEffect`: el doble montaje de StrictMode lo borra y luego lo
+  pisa con vacío. Leerlo al crear el estado (`useState(() => ...)`) y borrarlo en el efecto.
+- Para el administrador, `GET /cierres-caja` sin `usuario_id` devuelve los cierres de todos: la pantalla "Mis
+  cierres" debe filtrar por su propia cuenta.
+- Para probar la venta abandonada sin esperar 15 minutos, se retrocede `ventas.ultima_actividad` en una base de
+  prueba; el barrido corre cada 30 s. La cancelación automática también cierra la sesión (y ahora lo explica).
 
 ## 4. Próximos pasos inmediatos
 
