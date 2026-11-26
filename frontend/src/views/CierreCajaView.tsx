@@ -39,11 +39,14 @@ export function VistaCierreCaja() {
   const [resultado, setResultado] = useState<RespuestaCierre | null>(null);
   const [detalle, setDetalle] = useState<CierreCaja | null>(null);
 
+  const usuarioId = usuario?.id;
   const cargar = useCallback(async () => {
     try {
       const [turnoActual, lista] = await Promise.all([
         api.get<TurnoActual>('/cierres-caja/turno'),
-        api.get<RespuestaListaCierres>('/cierres-caja'),
+        // "Mis cierres": sin este filtro el administrador recibe los cierres de todos (esos se ven en
+        // Reportes). Para el cajero el servidor ya filtra por su cuenta.
+        api.get<RespuestaListaCierres>('/cierres-caja', { params: { usuario_id: usuarioId } }),
       ]);
       setTurno(turnoActual.data);
       setCierres(lista.data.cierres);
@@ -54,7 +57,7 @@ export function VistaCierreCaja() {
     } catch (err) {
       setError(mensajeError(err));
     }
-  }, []);
+  }, [usuarioId]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
