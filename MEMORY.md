@@ -69,12 +69,14 @@ y `AGENTS.md` antes de empezar cualquier tarea.
   `correcciones-pruebas-manuales`). Criterios de la spec 001 verificados y marcados, salvo 4 que no se pudieron
   probar a mano (dos administradores, cierre en todos los equipos, sesión de 8 horas, tiempo en el equipo del
   almacén).
-- Demo pública, primer paso (rama `cuentas-demo`, 2026-11-26): `npm run demo` crea la base `almacenpro_demo` (o
-  `DEMO_DB_NAME`; se niega a usar `almacenpro`) con dos cuentas sin cambio de contraseña: `admin.demo` /
+- Demo pública, primer paso (rama `cuentas-demo`, 2026-11-26): `npm run demo -- --confirmar` BORRA todo en la
+  base de `DB_NAME` (sin `--confirmar` se niega) y crea dos cuentas sin cambio de contraseña: `admin.demo` /
   `demo-admin` y `cajero.demo` / `demo-cajero` (definidas en `src/config/demo.js`). Con `MODO_DEMO=true`,
   `GET /api/auth/cuentas-demo` las entrega y el inicio de sesión las muestra con un botón "Usar esta cuenta";
-  sin el modo la lista va vacía. Aún falta proteger esas cuentas (bloqueo por intentos, cambio y restablecimiento
-  de contraseña, desactivación), los datos de ejemplo y el reinicio nocturno: se formalizará en la spec 006.
+  sin el modo la lista va vacía. A pedido del usuario la base local `almacenpro` quedó en cero con solo esas
+  dos cuentas y `MODO_DEMO=true` en su `.env` (respaldo previo: `almacenpro_antes_de_cuentas_demo_20261126_195851.sql`).
+  Aún falta proteger esas cuentas (bloqueo por intentos, cambio y restablecimiento de contraseña,
+  desactivación), los datos de ejemplo y el reinicio nocturno: se formalizará en la spec 006.
 - Pendiente de implementar: nada de las especificaciones aprobadas; faltan despliegue y las ideas fuera de alcance.
 - Duda para una próxima spec: un turno que solo tiene efectivo devuelto por una anulación no aparece como "sin
   cerrar" (la spec 005 define turno sin cerrar como ventas o abonos sin cierre), aunque sí movió efectivo.
