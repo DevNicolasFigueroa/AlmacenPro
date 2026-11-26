@@ -15,11 +15,13 @@ export function VistaLogin() {
   const { iniciarSesion } = useAutenticacion();
   const navegar = useNavigate();
   const ubicacion = useLocation();
-  const [avisoSesion, setAvisoSesion] = useState('');
+  // El motivo de un cierre de sesión forzado (venta cancelada por inactividad, sesión vencida...)
+  // se lee al crear el estado y se borra después: si se leyera en el efecto, el doble montaje de
+  // StrictMode lo borraba en la primera pasada y lo dejaba vacío en la segunda.
+  const [avisoSesion] = useState(() => sessionStorage.getItem('almacenpro_aviso') ?? '');
   const aviso = (ubicacion.state as { aviso?: string } | null)?.aviso ?? avisoSesion;
 
   useEffect(() => {
-    setAvisoSesion(sessionStorage.getItem('almacenpro_aviso') ?? '');
     sessionStorage.removeItem('almacenpro_aviso');
   }, []);
 
