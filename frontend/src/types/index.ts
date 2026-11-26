@@ -16,6 +16,13 @@ export interface RespuestaLogin {
   aviso: string | null;
 }
 
+// Cuenta pública de la demostración (solo llega con MODO_DEMO=true en el servidor).
+export interface CuentaDemo {
+  usuario: string;
+  password: string;
+  rol: Rol;
+}
+
 export interface Cuenta {
   id: number;
   nombre: string;

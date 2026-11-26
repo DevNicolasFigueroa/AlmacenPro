@@ -118,6 +118,104 @@
   background: rgba(243, 181, 63, 0.25);
 }
 
+/* Cuentas de prueba de la demostración: una boleta con borde punteado sobre la hoja */
+.login-demo {
+  margin: 0 0 24px;
+  padding: 14px 16px;
+  border: 2px dashed var(--botella);
+  border-radius: 10px;
+  background: #fffdf6;
+}
+
+.login-demo h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.login-demo > p {
+  margin: 2px 0 10px;
+  color: var(--tinta-suave);
+  font-size: 0.92rem;
+}
+
+.login-demo ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* El botón va a la derecha si cabe; en una hoja angosta baja bajo los datos de la cuenta. */
+.login-demo-cuenta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px dashed #c9bfa6;
+}
+
+.login-demo-cuenta > div {
+  flex: 1 1 190px;
+}
+
+.login-demo-cuenta strong {
+  display: block;
+}
+
+.login-demo-detalle {
+  display: block;
+  color: var(--tinta-suave);
+  font-size: 0.85rem;
+}
+
+.login-demo dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+}
+
+.login-demo dl div {
+  display: flex;
+  gap: 4px;
+}
+
+.login-demo dt {
+  color: var(--tinta-suave);
+}
+
+.login-demo dt::after {
+  content: ':';
+}
+
+.login-demo dd {
+  margin: 0;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.login-demo-usar {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border: 2px solid var(--botella);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--botella);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.login-demo-usar:hover {
+  background: var(--botella);
+  color: var(--letrero);
+}
+
 .login-form {
   display: grid;
   gap: 4px;
