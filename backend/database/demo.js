@@ -1,24 +1,27 @@
-// Crea (o reinicia) la base de la demostración con sus dos cuentas: un administrador y un cajero.
-// Uso, desde backend/:  npm run demo
+// Deja la base de datos en cero y crea las dos cuentas de la demostración: un administrador y un cajero.
+// Uso, desde backend/:  npm run demo -- --confirmar
 //
-// La base se llama "almacenpro_demo" salvo que se indique otra con DEMO_DB_NAME. Se usa una variable
-// propia y no DB_NAME porque el .env apunta a la base real del almacén: así este script nunca la borra.
-// Todo lo que haya en la base demo se elimina y se vuelve a crear desde database/schema.sql.
+// Trabaja sobre la base indicada en DB_NAME (.env). BORRA TODO lo que tenga (productos, ventas, fiado,
+// cierres y cuentas) y la vuelve a crear desde database/schema.sql. Por eso exige --confirmar.
 import 'dotenv/config';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import mysql from 'mysql2/promise';
 
-const nombreBase = process.env.DEMO_DB_NAME ?? 'almacenpro_demo';
+const nombreBase = process.env.DB_NAME ?? 'almacenpro';
 
-if (nombreBase === 'almacenpro' || !/^[A-Za-z0-9_]+$/.test(nombreBase)) {
-  console.error(`No se puede usar "${nombreBase}" como base demo: elige otro nombre en DEMO_DB_NAME.`);
+if (!/^[A-Za-z0-9_]+$/.test(nombreBase)) {
+  console.error(`El nombre de base "${nombreBase}" no es válido: revisa DB_NAME en el .env.`);
   process.exit(1);
 }
 
-// El pool y los modelos leen DB_NAME al importarse: se redirigen a la base demo antes de cargarlos.
-process.env.DB_NAME = nombreBase;
+if (!process.argv.includes('--confirmar')) {
+  console.error(`Esto borrará TODOS los datos de la base "${nombreBase}" y dejará solo las cuentas demo.`);
+  console.error('Respalda la base antes y vuelve a ejecutar:  npm run demo -- --confirmar');
+  process.exit(1);
+}
+
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'no-se-usa-en-este-script';
 
 const { pool } = await import('../src/config/db.js');
@@ -55,7 +58,7 @@ async function recrearEsquema() {
     }
     await conexion.query('SET FOREIGN_KEY_CHECKS = 1');
 
-    // schema.sql crea y usa "almacenpro": se redirige a la base demo.
+    // schema.sql crea y usa "almacenpro": se redirige a la base de DB_NAME si se llama distinto.
     const sql = fs.readFileSync(rutaEsquema, 'utf8').replaceAll('almacenpro', nombreBase);
     await conexion.query(sql);
   } finally {
@@ -83,14 +86,13 @@ async function crearCuentas() {
 try {
   await recrearEsquema();
   await crearCuentas();
-  console.log(`Base demo "${nombreBase}" lista con ${CUENTAS_DEMO.length} cuentas:`);
+  console.log(`Base "${nombreBase}" en cero con ${CUENTAS_DEMO.length} cuentas demo:`);
   for (const cuenta of CUENTAS_DEMO) {
     console.log(`  ${cuenta.rol.padEnd(13)} usuario: ${cuenta.usuario.padEnd(12)} contraseña: ${cuenta.password}`);
   }
-  console.log('Para verlas en el inicio de sesión, arranca el servidor con');
-  console.log(`  DB_NAME=${nombreBase} MODO_DEMO=true`);
+  console.log('Para verlas en el inicio de sesión, agrega MODO_DEMO=true al .env y reinicia el servidor.');
 } catch (error) {
-  console.error('No se pudo crear la base demo. Revisa la conexión a MySQL en el .env.');
+  console.error('No se pudo preparar la base demo. Revisa la conexión a MySQL en el .env.');
   console.error(error.message);
   process.exitCode = 1;
 } finally {

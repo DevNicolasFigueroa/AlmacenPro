@@ -1,5 +1,5 @@
-// Cuentas de la demostración pública. Solo existen en la base que crea `npm run demo`, y el inicio
-// de sesión las muestra únicamente cuando el servidor corre con MODO_DEMO=true.
+// Cuentas de la demostración pública. Las crea `npm run demo`, y el inicio de sesión las muestra
+// únicamente cuando el servidor corre con MODO_DEMO=true.
 // Las contraseñas son públicas a propósito: nunca usar estas cuentas en un almacén real.
 export const CUENTAS_DEMO = [
   {
